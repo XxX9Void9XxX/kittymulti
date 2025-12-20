@@ -85,11 +85,13 @@ function draw() {
     for (const id in players) {
       const p = players[id];
 
-      ctx.save();
-      ctx.translate(p.x + 24, p.y);
-      ctx.scale(p.facingLeft ? -1 : 1, 1);
-      ctx.drawImage(sprite, -24, 0, 48, 48);
-      ctx.restore();
+      if (!p.dead) {
+        ctx.save();
+        ctx.translate(p.x + 24, p.y);
+        ctx.scale(p.facingLeft ? -1 : 1, 1);
+        ctx.drawImage(sprite, -24, 0, 48, 48);
+        ctx.restore();
+      }
 
       // Name tag
       ctx.fillStyle = "white";
