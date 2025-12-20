@@ -45,7 +45,8 @@ io.on("connection", socket => {
     onGround: false,
     hp: 100,
     dead: false,
-    facingLeft: false
+    facingLeft: false,
+    deathTimer: 0
   };
 
   socket.on("input", input => {
@@ -105,7 +106,24 @@ function gameLoop() {
   for (const id in players) {
     const p = players[id];
 
-    if (p.dead) continue;
+    if (p.dead) {
+      // Falling animation
+      p.vy += GRAVITY;
+      p.y += p.vy;
+
+      // Respawn automatically after 2 seconds
+      p.deathTimer += 1;
+      if (p.deathTimer >= 120) { // ~2 seconds
+        p.dead = false;
+        p.hp = 100;
+        p.x = 100;
+        p.y = WORLD.groundY - 48;
+        p.vx = 0;
+        p.vy = 0;
+        p.deathTimer = 0;
+      }
+      continue;
+    }
 
     // Gravity & movement
     p.vy += GRAVITY;
@@ -147,23 +165,21 @@ function gameLoop() {
       if (id === pr.owner) continue;
       const p = players[id];
 
+      if (p.dead) continue;
+
       if (pr.x > p.x && pr.x < p.x + 48 && pr.y > p.y && pr.y < p.y + 48) {
         p.hp -= 10;
+
+        // Knockback
+        const direction = pr.x < p.x + 24 ? 1 : -1;
+        p.vx = 8 * direction;
+        p.vy = -5;
 
         if (p.hp <= 0 && !p.dead) {
           p.dead = true;
           p.vx = 0;
-          p.vy = 0;
-
-          setTimeout(() => {
-            if (!players[id]) return;
-            players[id].hp = 100;
-            players[id].x = 100;
-            players[id].y = WORLD.groundY - 48;
-            players[id].vx = 0;
-            players[id].vy = 0;
-            players[id].dead = false;
-          }, 2000);
+          p.vy = -5; // start death fall
+          p.deathTimer = 0;
         }
 
         projectiles.splice(i, 1);
