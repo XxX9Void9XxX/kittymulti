@@ -32,14 +32,18 @@ const platforms = [
 ];
 
 const players = {};
+const projectiles = [];
 
 io.on("connection", socket => {
   players[socket.id] = {
+    id: socket.id,
+    name: "Player" + socket.id.slice(0, 4),
     x: 100,
     y: WORLD.groundY - 48,
     vx: 0,
     vy: 0,
-    onGround: false
+    onGround: false,
+    hp: 100
   };
 
   socket.on("input", input => {
@@ -54,6 +58,24 @@ io.on("connection", socket => {
       p.vy = -JUMP;
       p.onGround = false;
     }
+  });
+
+  socket.on("shoot", data => {
+    const p = players[socket.id];
+    if (!p) return;
+
+    const dx = data.x - (p.x + 24);
+    const dy = data.y - (p.y + 24);
+    const len = Math.hypot(dx, dy) || 1;
+
+    projectiles.push({
+      x: p.x + 24,
+      y: p.y + 24,
+      vx: (dx / len) * 8,
+      vy: (dy / len) * 8,
+      owner: socket.id,
+      life: 120
+    });
   });
 
   socket.on("disconnect", () => {
@@ -95,15 +117,42 @@ function gameLoop() {
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
 
     if (p.y > WORLD.height) {
+      p.hp = 100;
       p.x = 100;
       p.y = WORLD.groundY - 48;
-      p.vy = 0;
     }
+  }
+
+  // Projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const pr = projectiles[i];
+    pr.x += pr.vx;
+    pr.y += pr.vy;
+    pr.life--;
+
+    for (const id in players) {
+      if (id === pr.owner) continue;
+      const p = players[id];
+
+      if (
+        pr.x > p.x &&
+        pr.x < p.x + 48 &&
+        pr.y > p.y &&
+        pr.y < p.y + 48
+      ) {
+        p.hp = Math.max(0, p.hp - 10);
+        projectiles.splice(i, 1);
+        break;
+      }
+    }
+
+    if (pr.life <= 0) projectiles.splice(i, 1);
   }
 
   io.emit("state", {
     players,
     platforms,
+    projectiles,
     world: WORLD
   });
 }
