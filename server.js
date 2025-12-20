@@ -43,12 +43,14 @@ io.on("connection", socket => {
     vx: 0,
     vy: 0,
     onGround: false,
-    hp: 100
+    hp: 100,
+    dead: false,
+    facingLeft: false
   };
 
   socket.on("input", input => {
     const p = players[socket.id];
-    if (!p) return;
+    if (!p || p.dead) return;
 
     if (input.left) p.vx = -SPEED;
     else if (input.right) p.vx = SPEED;
@@ -58,11 +60,13 @@ io.on("connection", socket => {
       p.vy = -JUMP;
       p.onGround = false;
     }
+
+    p.facingLeft = input.facingLeft;
   });
 
   socket.on("shoot", data => {
     const p = players[socket.id];
-    if (!p) return;
+    if (!p || p.dead) return;
 
     const dx = data.x - (p.x + 24);
     const dy = data.y - (p.y + 24);
@@ -100,6 +104,7 @@ function collidePlatform(p, plat) {
 function gameLoop() {
   for (const id in players) {
     const p = players[id];
+    if (p.dead) continue;
 
     p.vy += GRAVITY;
     p.x += p.vx;
@@ -134,13 +139,22 @@ function gameLoop() {
       if (id === pr.owner) continue;
       const p = players[id];
 
-      if (
-        pr.x > p.x &&
-        pr.x < p.x + 48 &&
-        pr.y > p.y &&
-        pr.y < p.y + 48
-      ) {
-        p.hp = Math.max(0, p.hp - 10);
+      if (pr.x > p.x && pr.x < p.x + 48 && pr.y > p.y && pr.y < p.y + 48) {
+        p.hp -= 10;
+
+        if (p.hp <= 0 && !p.dead) {
+          p.dead = true;
+          setTimeout(() => {
+            if (!players[id]) return;
+            players[id].hp = 100;
+            players[id].x = 100;
+            players[id].y = WORLD.groundY - 48;
+            players[id].vx = 0;
+            players[id].vy = 0;
+            players[id].dead = false;
+          }, 2000);
+        }
+
         projectiles.splice(i, 1);
         break;
       }
