@@ -50,7 +50,7 @@ function draw() {
   requestAnimationFrame(draw);
   if (!gameState) return;
 
-  const { players, platforms, projectiles, world } = gameState;
+  const { players, platforms, projectiles, mice, world, score } = gameState;
   const me = players[myId];
 
   if (me) {
@@ -80,41 +80,44 @@ function draw() {
     ctx.fill();
   });
 
+  // Mice
+  mice.forEach(m => {
+    if (m.dead) return;
+    ctx.fillStyle = "gray";
+    ctx.fillRect(m.x, m.y, 32, 32);
+
+    // Mouse health bar
+    ctx.fillStyle = "red";
+    ctx.fillRect(m.x, m.y - 6, 32, 4);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(m.x, m.y - 6, 32 * (m.hp / 20), 4);
+  });
+
   // Players
   if (spriteReady) {
     for (const id in players) {
       const p = players[id];
 
-      if (!p.dead) {
-        ctx.save();
-        ctx.translate(p.x + 24, p.y);
-        ctx.scale(p.facingLeft ? -1 : 1, 1);
-        ctx.drawImage(sprite, -24, 0, 48, 48);
-        ctx.restore();
-      } else {
-        // Death animation: rotate while falling
-        ctx.save();
-        ctx.translate(p.x + 24, p.y + 24);
-        ctx.rotate(Math.PI / 2); // rotate 90 degrees
-        ctx.drawImage(sprite, -24, -24, 48, 48);
-        ctx.restore();
-      }
+      ctx.save();
+      ctx.translate(p.x + 24, p.y);
+      ctx.scale(p.facingLeft ? -1 : 1, 1);
+      ctx.drawImage(sprite, -24, 0, 48, 48);
+      ctx.restore();
 
       // Name tag
       ctx.fillStyle = "white";
       ctx.font = "12px Arial";
       ctx.textAlign = "center";
       ctx.fillText(p.name, p.x + 24, p.y - 18);
-
-      // Health bar
-      ctx.fillStyle = "red";
-      ctx.fillRect(p.x, p.y - 12, 48, 6);
-      ctx.fillStyle = "lime";
-      ctx.fillRect(p.x, p.y - 12, 48 * (p.hp / 100), 6);
     }
   }
 
   ctx.restore();
+
+  // Display team score
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Team Score: " + score, 20, 30);
 }
 
 draw();
