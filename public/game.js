@@ -7,10 +7,15 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 let gameState = null;
+let myId = null;
+let cameraX = 0, cameraY = 0;
 
-// Input send
+socket.on("connect", () => myId = socket.id);
+socket.on("state", state => gameState = state);
+
+// Input
 setInterval(() => {
-  if (!gameState || !gameState.players) return;
+  if (!gameState || !gameState.players[myId]) return;
   socket.emit("input", {
     left: keys["a"] || keys["ArrowLeft"],
     right: keys["d"] || keys["ArrowRight"],
@@ -18,19 +23,25 @@ setInterval(() => {
   });
 }, 1000 / 60);
 
-// Receive state
-socket.on("state", state => gameState = state);
-
-// Draw loop
+// Draw
 function draw() {
   requestAnimationFrame(draw);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "skyblue";
+  ctx.fillStyle = "#5c94fc";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (!gameState) return;
 
-  const { players, mice, platforms } = gameState;
+  const { players, mice, platforms, world } = gameState;
+  const me = players[myId];
+
+  if (me) {
+    cameraX = Math.max(0, Math.min(world.width - canvas.width, me.x - canvas.width / 2));
+    cameraY = Math.max(0, Math.min(world.height - canvas.height, me.y - canvas.height / 2));
+  }
+
+  ctx.save();
+  ctx.translate(-cameraX, -cameraY);
 
   // Platforms
   ctx.fillStyle = "#654321";
@@ -46,6 +57,8 @@ function draw() {
   // Mice
   ctx.fillStyle = "gray";
   mice.forEach(m => ctx.fillRect(m.x, m.y, 32, 32));
+
+  ctx.restore();
 }
 
 draw();
