@@ -22,9 +22,13 @@ canvas.addEventListener("click", e => {
 
 const sprite = new Image();
 sprite.src = "kiitygame.png";
+const mouseSprite = new Image();
+mouseSprite.src = "mouse.png";
 
 let spriteReady = false;
+let mouseReady = false;
 sprite.onload = () => spriteReady = true;
+mouseSprite.onload = () => mouseReady = true;
 
 let gameState = null;
 let myId = null;
@@ -81,17 +85,17 @@ function draw() {
   });
 
   // Mice
-  mice.forEach(m => {
-    if (m.dead) return;
-    ctx.fillStyle = "gray";
-    ctx.fillRect(m.x, m.y, 32, 32);
-
-    // Mouse health bar
-    ctx.fillStyle = "red";
-    ctx.fillRect(m.x, m.y - 6, 32, 4);
-    ctx.fillStyle = "lime";
-    ctx.fillRect(m.x, m.y - 6, 32 * (m.hp / 20), 4);
-  });
+  if (mouseReady) {
+    mice.forEach(m => {
+      if (m.dead) return;
+      ctx.drawImage(mouseSprite, m.x, m.y, 32, 32);
+      // Health bar
+      ctx.fillStyle = "red";
+      ctx.fillRect(m.x, m.y - 6, 32, 4);
+      ctx.fillStyle = "lime";
+      ctx.fillRect(m.x, m.y - 6, 32 * (m.hp / 20), 4);
+    });
+  }
 
   // Players
   if (spriteReady) {
@@ -109,6 +113,12 @@ function draw() {
       ctx.font = "12px Arial";
       ctx.textAlign = "center";
       ctx.fillText(p.name, p.x + 24, p.y - 18);
+
+      // Health bar
+      ctx.fillStyle = "red";
+      ctx.fillRect(p.x, p.y - 12, 48, 6);
+      ctx.fillStyle = "lime";
+      ctx.fillRect(p.x, p.y - 12, 48 * (p.hp / 100), 6);
     }
   }
 
