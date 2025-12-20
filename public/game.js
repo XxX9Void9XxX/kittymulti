@@ -39,15 +39,16 @@ setInterval(()=>{
 function draw(){
   requestAnimationFrame(draw);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#5c94fc";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#5c94fc"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
   if(!gameState) return;
-  const { players, mice, platforms, world, projectiles }=gameState;
+  const { players, mice, platforms, world, projectiles, score }=gameState;
   const me = players[myId];
 
-  if(me){ cameraX=Math.max(0,Math.min(world.width-canvas.width,me.x-canvas.width/2));
-          cameraY=Math.max(0,Math.min(world.height-canvas.height,me.y-canvas.height/2)); }
+  if(me){ 
+    cameraX=Math.max(0,Math.min(world.width-canvas.width,me.x-canvas.width/2));
+    cameraY=Math.max(0,Math.min(world.height-canvas.height,me.y-canvas.height/2)); 
+  }
 
   ctx.save(); ctx.translate(-cameraX,-cameraY);
 
@@ -61,19 +62,29 @@ function draw(){
   mice.forEach(m=>{
     if(mouseReady) ctx.drawImage(mouseSprite,m.x,m.y,32,32);
     else { ctx.fillStyle="gray"; ctx.fillRect(m.x,m.y,32,32); }
+
+    // Mouse health bar
+    ctx.fillStyle="red"; ctx.fillRect(m.x,m.y-6,32,4);
+    ctx.fillStyle="lime"; ctx.fillRect(m.x,m.y-6,32*(m.hp/m.maxHp),4);
   });
 
   // Players
   for(const id in players){
     const p=players[id];
-    // sprite
     if(playerReady) ctx.drawImage(playerSprite,p.x,p.y,48,48);
     else { ctx.fillStyle="orange"; ctx.fillRect(p.x,p.y,48,48); }
 
     // Health bar
     ctx.fillStyle="red"; ctx.fillRect(p.x,p.y-10,48,6);
     ctx.fillStyle="lime"; ctx.fillRect(p.x,p.y-10,48*(p.hp/100),6);
+
+    // Name tag
+    ctx.fillStyle="white"; ctx.font="12px Arial"; ctx.textAlign="center";
+    ctx.fillText(p.name,p.x+24,p.y-15);
   }
+
+  // Team Score
+  ctx.fillStyle="white"; ctx.font="20px Arial"; ctx.fillText("Team Score: "+score,20,30);
 
   ctx.restore();
 }
