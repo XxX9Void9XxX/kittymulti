@@ -114,19 +114,31 @@ function gameLoop() {
   for (let i = projectiles.length-1; i>=0; i--) {
     const pr = projectiles[i];
     pr.x += pr.vx; pr.y += pr.vy; pr.life--;
+
     for (const m of mice) {
       if (m.dead) continue;
       if (pr.x > m.x && pr.x < m.x+32 && pr.y > m.y && pr.y < m.y+32) {
         m.hp -= 10;
         if (m.hp <= 0) {
           m.dead = true;
-          m.hp = 0;  // die immediately
+          m.hp = 0;
           teamScore++;
+
+          // Respawn after 3 seconds
+          setTimeout(() => {
+            m.dead = false;
+            m.hp = m.maxHp;
+            m.x = Math.random() * (WORLD.width - 32);
+            m.y = WORLD.groundY - 32;
+            m.vx = Math.random() > 0.5 ? 1.5 : -1.5;
+          }, 3000);
         }
-        projectiles.splice(i,1); break;
+        projectiles.splice(i,1);
+        break;
       }
     }
-    if (pr.life<=0) projectiles.splice(i,1);
+
+    if (pr.life <= 0) projectiles.splice(i,1);
   }
 
   // Respawn dead players
