@@ -30,7 +30,7 @@ const mice = [];
 const projectiles = [];
 let teamScore = 0;
 
-// Spawn mice with consistent health
+// Spawn mice
 for (let i = 0; i < 5; i++) {
   mice.push({
     id: "m" + i,
@@ -44,7 +44,7 @@ for (let i = 0; i < 5; i++) {
   });
 }
 
-// Helper: collision
+// Collision helper
 function collidePlatform(obj, plat) {
   if (obj.x < plat.x + plat.w && obj.x + (obj.w||48) > plat.x &&
       obj.y + (obj.h||48) > plat.y && obj.y + (obj.h||48) < plat.y + plat.h &&
@@ -105,7 +105,7 @@ function gameLoop() {
       if (p.dead) continue;
       if (m.x < p.x + 48 && m.x + 32 > p.x && m.y < p.y + 48 && m.y + 32 > p.y) {
         p.hp -= 0.5;
-        if (p.hp <= 0) { p.hp = 0; p.dead = true; } // die immediately
+        if (p.hp <= 0) p.dead = true; // die immediately
       }
     }
   });
@@ -119,14 +119,9 @@ function gameLoop() {
       if (pr.x > m.x && pr.x < m.x+32 && pr.y > m.y && pr.y < m.y+32) {
         m.hp -= 10;
         if (m.hp <= 0) {
-          m.dead = true; 
+          m.dead = true;
+          m.hp = 0;  // die immediately
           teamScore++;
-          setTimeout(()=>{ 
-            m.dead=false; 
-            m.hp=m.maxHp; 
-            m.x=Math.random()*(WORLD.width-48); 
-            m.y=WORLD.groundY-48; 
-          },3000);
         }
         projectiles.splice(i,1); break;
       }
@@ -134,7 +129,7 @@ function gameLoop() {
     if (pr.life<=0) projectiles.splice(i,1);
   }
 
-  // Respawn dead players after 3 sec
+  // Respawn dead players
   for (const id in players) {
     const p = players[id];
     if (p.dead) {
