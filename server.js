@@ -1,5 +1,6 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 
 const app = express();
@@ -7,6 +8,10 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static("public"));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 const GRAVITY = 0.5;
 const SPEED = 4;
@@ -51,7 +56,9 @@ io.on("connection", socket => {
     }
   });
 
-  socket.on("disconnect", () => delete players[socket.id]);
+  socket.on("disconnect", () => {
+    delete players[socket.id];
+  });
 });
 
 function collidePlatform(p, plat) {
@@ -77,18 +84,16 @@ function gameLoop() {
     p.y += p.vy;
     p.onGround = false;
 
-    // Ground collision
     if (p.y > WORLD.groundY - 48) {
       p.y = WORLD.groundY - 48;
       p.vy = 0;
       p.onGround = true;
     }
 
-    // Platform collisions
     platforms.forEach(plat => collidePlatform(p, plat));
 
-    // World borders
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
+
     if (p.y > WORLD.height) {
       p.x = 100;
       p.y = WORLD.groundY - 48;
@@ -104,5 +109,4 @@ function gameLoop() {
 }
 
 setInterval(gameLoop, 1000 / 60);
-
 server.listen(process.env.PORT || 3000);
