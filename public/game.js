@@ -6,6 +6,14 @@ const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
+canvas.addEventListener("click", e => {
+  const rect = canvas.getBoundingClientRect();
+  socket.emit("shoot", {
+    x: e.clientX - rect.left + cameraX,
+    y: e.clientY - rect.top + cameraY
+  });
+});
+
 const sprite = new Image();
 sprite.src = "kiitygame.png";
 
@@ -14,17 +22,13 @@ sprite.onload = () => spriteReady = true;
 
 let gameState = null;
 let myId = null;
-let connected = false;
 let cameraX = 0;
 let cameraY = 0;
 
-socket.on("connect", () => {
-  myId = socket.id;
-  connected = true;
-});
+socket.on("connect", () => myId = socket.id);
 
 setInterval(() => {
-  if (!connected || !gameState || !gameState.players[myId]) return;
+  if (!gameState || !gameState.players[myId]) return;
 
   socket.emit("input", {
     left: keys["a"] || keys["ArrowLeft"],
@@ -33,23 +37,18 @@ setInterval(() => {
   });
 }, 1000 / 60);
 
-socket.on("state", state => {
-  gameState = state;
-});
+socket.on("state", state => gameState = state);
 
 function draw() {
   requestAnimationFrame(draw);
   if (!gameState) return;
 
-  const { players, platforms, world } = gameState;
+  const { players, platforms, projectiles, world } = gameState;
   const me = players[myId];
 
   if (me) {
-    cameraX = me.x - canvas.width / 2 + 24;
-    cameraY = me.y - canvas.height / 2 + 24;
-
-    cameraX = Math.max(0, Math.min(world.width - canvas.width, cameraX));
-    cameraY = Math.max(0, Math.min(world.height - canvas.height, cameraY));
+    cameraX = Math.max(0, Math.min(world.width - canvas.width, me.x - canvas.width / 2));
+    cameraY = Math.max(0, Math.min(world.height - canvas.height, me.y - canvas.height / 2));
   }
 
   ctx.fillStyle = "#5c94fc";
@@ -58,18 +57,40 @@ function draw() {
   ctx.save();
   ctx.translate(-cameraX, -cameraY);
 
+  // Ground
   ctx.fillStyle = "#228B22";
-  ctx.fillRect(0, world.groundY, world.width, world.height - world.groundY);
+  ctx.fillRect(0, world.groundY, world.width, world.height);
 
+  // Platforms
   ctx.fillStyle = "#654321";
-  platforms.forEach(p =>
-    ctx.fillRect(p.x, p.y, p.w, p.h)
-  );
+  platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
 
+  // Projectiles (yarn balls)
+  ctx.fillStyle = "#ff69b4";
+  projectiles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Players
   if (spriteReady) {
     for (const id in players) {
       const p = players[id];
+
       ctx.drawImage(sprite, p.x, p.y, 48, 48);
+
+      // Name tag
+      ctx.fillStyle = "white";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(p.name, p.x + 24, p.y - 18);
+
+      // Health bar
+      ctx.fillStyle = "red";
+      ctx.fillRect(p.x, p.y - 12, 48, 6);
+      ctx.fillStyle = "lime";
+      ctx.fillRect(p.x, p.y - 12, 48 * (p.hp / 100), 6);
     }
   }
 
