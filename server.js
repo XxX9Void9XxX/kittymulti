@@ -141,14 +141,16 @@ function gameLoop() {
     if (pr.life <= 0) projectiles.splice(i,1);
   }
 
-  // Respawn dead players
+  // Respawn dead players immediately
   for (const id in players) {
     const p = players[id];
     if (p.dead) {
-      p.respawnTimer = (p.respawnTimer||0)+1;
-      if (p.respawnTimer>=180) { 
-        p.dead=false; p.hp=100; p.x=50; p.y=WORLD.groundY-48; p.vx=0; p.vy=0;
-      }
+      p.dead = false;
+      p.hp = 100;
+      p.x = 50;
+      p.y = WORLD.groundY - 48;
+      p.vx = 0;
+      p.vy = 0;
     }
   }
 
