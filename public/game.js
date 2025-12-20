@@ -61,7 +61,7 @@ function draw(){
   // Mice
   mice.forEach(m=>{
     if(mouseReady) ctx.drawImage(mouseSprite,m.x,m.y,32,32);
-    else { ctx.fillStyle="gray"; ctx.fillRect(m.x,m.y,32,32); }
+    else ctx.fillStyle="gray", ctx.fillRect(m.x,m.y,32,32);
 
     // Mouse health bar
     ctx.fillStyle="red"; ctx.fillRect(m.x,m.y-6,32,4);
@@ -71,8 +71,19 @@ function draw(){
   // Players
   for(const id in players){
     const p=players[id];
-    if(playerReady) ctx.drawImage(playerSprite,p.x,p.y,48,48);
-    else { ctx.fillStyle="orange"; ctx.fillRect(p.x,p.y,48,48); }
+
+    ctx.save();
+    let flip = false;
+    if (id === myId) flip = (mouseX + cameraX) < (p.x + 24);
+    if(flip){
+      ctx.translate(p.x+48,p.y);
+      ctx.scale(-1,1);
+      if(playerReady) ctx.drawImage(playerSprite,0,0,48,48);
+      else ctx.fillStyle="orange", ctx.fillRect(0,0,48,48);
+    } else {
+      if(playerReady) ctx.drawImage(playerSprite,p.x,p.y,48,48);
+      else ctx.fillStyle="orange", ctx.fillRect(p.x,p.y,48,48);
+    }
 
     // Health bar
     ctx.fillStyle="red"; ctx.fillRect(p.x,p.y-10,48,6);
@@ -81,6 +92,8 @@ function draw(){
     // Name tag
     ctx.fillStyle="white"; ctx.font="12px Arial"; ctx.textAlign="center";
     ctx.fillText(p.name,p.x+24,p.y-15);
+
+    ctx.restore();
   }
 
   // Team Score
