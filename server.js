@@ -104,27 +104,35 @@ function collidePlatform(p, plat) {
 function gameLoop() {
   for (const id in players) {
     const p = players[id];
+
     if (p.dead) continue;
 
+    // Gravity & movement
     p.vy += GRAVITY;
     p.x += p.vx;
     p.y += p.vy;
     p.onGround = false;
 
+    // Ground collision
     if (p.y > WORLD.groundY - 48) {
       p.y = WORLD.groundY - 48;
       p.vy = 0;
       p.onGround = true;
     }
 
+    // Platform collisions
     platforms.forEach(plat => collidePlatform(p, plat));
 
+    // World borders
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
 
+    // Fall out of world
     if (p.y > WORLD.height) {
       p.hp = 100;
       p.x = 100;
       p.y = WORLD.groundY - 48;
+      p.vx = 0;
+      p.vy = 0;
     }
   }
 
@@ -144,6 +152,9 @@ function gameLoop() {
 
         if (p.hp <= 0 && !p.dead) {
           p.dead = true;
+          p.vx = 0;
+          p.vy = 0;
+
           setTimeout(() => {
             if (!players[id]) return;
             players[id].hp = 100;
