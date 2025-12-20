@@ -60,7 +60,7 @@ function draw(){
 
   // Mice
   mice.forEach(m=>{
-    if (m.dead) return; // skip dead mice
+    if (m.dead) return;
 
     if(mouseReady) ctx.drawImage(mouseSprite,m.x,m.y,32,32);
     else ctx.fillStyle="gray", ctx.fillRect(m.x,m.y,32,32);
