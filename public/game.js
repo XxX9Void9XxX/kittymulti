@@ -6,6 +6,12 @@ const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
+let mouseX = 0;
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+});
+
 canvas.addEventListener("click", e => {
   const rect = canvas.getBoundingClientRect();
   socket.emit("shoot", {
@@ -33,7 +39,8 @@ setInterval(() => {
   socket.emit("input", {
     left: keys["a"] || keys["ArrowLeft"],
     right: keys["d"] || keys["ArrowRight"],
-    jump: keys["w"] || keys["ArrowUp"] || keys[" "]
+    jump: keys["w"] || keys["ArrowUp"] || keys[" "],
+    facingLeft: mouseX < canvas.width / 2
   });
 }, 1000 / 60);
 
@@ -65,7 +72,7 @@ function draw() {
   ctx.fillStyle = "#654321";
   platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
 
-  // Projectiles (yarn balls)
+  // Projectiles
   ctx.fillStyle = "#ff69b4";
   projectiles.forEach(p => {
     ctx.beginPath();
@@ -78,7 +85,11 @@ function draw() {
     for (const id in players) {
       const p = players[id];
 
-      ctx.drawImage(sprite, p.x, p.y, 48, 48);
+      ctx.save();
+      ctx.translate(p.x + 24, p.y);
+      ctx.scale(p.facingLeft ? -1 : 1, 1);
+      ctx.drawImage(sprite, -24, 0, 48, 48);
+      ctx.restore();
 
       // Name tag
       ctx.fillStyle = "white";
