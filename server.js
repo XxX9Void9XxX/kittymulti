@@ -14,10 +14,8 @@ const GRAVITY = 0.5;
 const SPEED = 4;
 const JUMP = 10;
 
-// Big map
 const WORLD = { width: 3000, height: 800, groundY: 700 };
 
-// Platforms
 const platforms = [
   { x: 0, y: WORLD.groundY, w: WORLD.width, h: 100 },
   { x: 400, y: 600, w: 200, h: 20 },
@@ -46,9 +44,9 @@ for (let i = 0; i < 5; i++) {
   });
 }
 
-// Helper: collision with platforms
+// Collision helper
 function collidePlatform(obj, plat) {
-  if (obj.x < plat.x + plat.w && obj.x + 48 > plat.x && obj.y + 48 > plat.y && obj.y + 48 < plat.y + plat.h && obj.vy >= 0) {
+  if (obj.x < plat.x + plat.w && obj.x + (obj.w||48) > plat.x && obj.y + (obj.h||48) > plat.y && obj.y + (obj.h||48) < plat.y + plat.h && obj.vy >= 0) {
     obj.y = plat.y - (obj.h || 48);
     obj.vy = 0;
     return true;
@@ -72,7 +70,6 @@ function gameLoop() {
     if (p.y > WORLD.groundY - 48) { p.y = WORLD.groundY - 48; p.vy = 0; onGround = true; }
 
     p.onGround = onGround;
-    // Keep in bounds
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
   }
 
@@ -100,26 +97,73 @@ function gameLoop() {
 
     // Bounce off walls
     if (m.x < 0 || m.x > WORLD.width - 32) m.vx *= -1;
+
+    // Attack player if touching
+    for (const id in players) {
+      const p = players[id];
+      if (p.dead) continue;
+      if (m.x < p.x + 48 && m.x + 32 > p.x && m.y < p.y + 48 && m.y + 32 > p.y) {
+        p.hp -= 0.5; // small continuous damage
+        if (p.hp <= 0) { p.hp = 0; p.dead = true; p.vx=0; p.vy=-5; p.respawnTimer=0; }
+      }
+    }
   });
 
-  io.emit("state", { players, mice, platforms, world: WORLD, score: teamScore });
+  // Update projectiles
+  for (let i = projectiles.length-1; i>=0; i--) {
+    const pr = projectiles[i];
+    pr.x += pr.vx; pr.y += pr.vy; pr.life--;
+    for (const m of mice) {
+      if (m.dead) continue;
+      if (pr.x > m.x && pr.x < m.x+32 && pr.y > m.y && pr.y < m.y+32) {
+        m.hp -= 10;
+        if (m.hp <= 0) {
+          m.dead = true;
+          setTimeout(()=>{ m.dead=false; m.hp=20; m.x=Math.random()*(WORLD.width-48); m.y=WORLD.groundY-48; },3000);
+        }
+        projectiles.splice(i,1);
+        break;
+      }
+    }
+    if (pr.life<=0) projectiles.splice(i,1);
+  }
+
+  // Respawn dead players
+  for (const id in players) {
+    const p = players[id];
+    if (p.dead) {
+      p.respawnTimer = (p.respawnTimer||0)+1;
+      if (p.respawnTimer>=180) { // 3 seconds
+        p.dead=false; p.hp=100; p.x=50; p.y=WORLD.groundY-48; p.vx=0; p.vy=0;
+      }
+    }
+  }
+
+  io.emit("state", { players, mice, platforms, world: WORLD, projectiles });
 }
 
-setInterval(gameLoop, 1000 / 60);
+setInterval(gameLoop, 1000/60);
 
-// Player input
-io.on("connection", socket => {
-  console.log("Player connected:", socket.id);
-  players[socket.id] = { id: socket.id, x: 50, y: WORLD.groundY - 48, vx: 0, vy: 0, onGround: false, dead: false };
+// Input & shooting
+io.on("connection", socket=>{
+  console.log("Player connected:",socket.id);
+  players[socket.id] = { id: socket.id, x:50, y:WORLD.groundY-48, vx:0, vy:0, hp:100, dead:false, onGround:false };
 
-  socket.on("input", input => {
-    const p = players[socket.id];
-    if (!p || p.dead) return;
-    p.vx = input.left ? -SPEED : input.right ? SPEED : 0;
-    if (input.jump && p.onGround) p.vy = -JUMP;
+  socket.on("input", input=>{
+    const p = players[socket.id]; if(!p||p.dead) return;
+    p.vx = input.left?-SPEED:input.right?SPEED:0;
+    if(input.jump && p.onGround) p.vy=-JUMP;
   });
 
-  socket.on("disconnect", () => delete players[socket.id]);
+  socket.on("shoot", data=>{
+    const p = players[socket.id]; if(!p||p.dead) return;
+    const dx = data.x-(p.x+24);
+    const dy = data.y-(p.y+24);
+    const len = Math.hypot(dx,dy)||1;
+    projectiles.push({ x:p.x+24, y:p.y+24, vx:dx/len*8, vy:dy/len*8, life:120 });
+  });
+
+  socket.on("disconnect",()=>delete players[socket.id]);
 });
 
-server.listen(3000, () => console.log("Server running on http://localhost:3000"));
+server.listen(3000,()=>console.log("Server running on http://localhost:3000"));
