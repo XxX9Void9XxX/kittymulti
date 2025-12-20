@@ -91,6 +91,13 @@ function draw() {
         ctx.scale(p.facingLeft ? -1 : 1, 1);
         ctx.drawImage(sprite, -24, 0, 48, 48);
         ctx.restore();
+      } else {
+        // Death animation: rotate while falling
+        ctx.save();
+        ctx.translate(p.x + 24, p.y + 24);
+        ctx.rotate(Math.PI / 2); // rotate 90 degrees
+        ctx.drawImage(sprite, -24, -24, 48, 48);
+        ctx.restore();
       }
 
       // Name tag
