@@ -36,7 +36,7 @@ const projectiles = [];
 const mice = [];
 let teamScore = 0;
 
-// Spawn some mice
+// Spawn mice
 for (let i = 0; i < 5; i++) {
   mice.push({
     id: "mouse" + i,
@@ -58,12 +58,15 @@ io.on("connection", socket => {
     vx: 0,
     vy: 0,
     onGround: false,
-    facingLeft: false
+    hp: 100,
+    dead: false,
+    facingLeft: false,
+    deathTimer: 0
   };
 
   socket.on("input", input => {
     const p = players[socket.id];
-    if (!p) return;
+    if (!p || p.dead) return;
 
     if (input.left) p.vx = -SPEED;
     else if (input.right) p.vx = SPEED;
@@ -79,7 +82,7 @@ io.on("connection", socket => {
 
   socket.on("shoot", data => {
     const p = players[socket.id];
-    if (!p) return;
+    if (!p || p.dead) return;
 
     const dx = data.x - (p.x + 24);
     const dy = data.y - (p.y + 24);
@@ -118,6 +121,23 @@ function gameLoop() {
   // Player physics
   for (const id in players) {
     const p = players[id];
+
+    if (p.dead) {
+      p.vy += GRAVITY;
+      p.y += p.vy;
+      p.deathTimer += 1;
+      if (p.deathTimer >= 120) {
+        p.dead = false;
+        p.hp = 100;
+        p.x = 100;
+        p.y = WORLD.groundY - 48;
+        p.vx = 0;
+        p.vy = 0;
+        p.deathTimer = 0;
+      }
+      continue;
+    }
+
     p.vy += GRAVITY;
     p.x += p.vx;
     p.y += p.vy;
@@ -133,31 +153,66 @@ function gameLoop() {
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
   }
 
-  // Mouse physics & AI
+  // Mouse AI
   mice.forEach(mouse => {
     if (mouse.dead) return;
 
+    // Gravity
     mouse.vy += GRAVITY;
-    mouse.x += mouse.vx;
     mouse.y += mouse.vy;
     mouse.onGround = false;
 
-    if (mouse.y > WORLD.groundY - 48) {
-      mouse.y = WORLD.groundY - 48;
-      mouse.vy = 0;
-      mouse.onGround = true;
-    }
-
     platforms.forEach(plat => collidePlatform(mouse, plat));
 
-    // Bounce on world borders
+    // Simple AI: chase nearest player if close
+    let nearest = null;
+    let dist = Infinity;
+    for (const id in players) {
+      const p = players[id];
+      if (p.dead) continue;
+      const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+      if (d < dist) {
+        dist = d;
+        nearest = p;
+      }
+    }
+
+    if (nearest && dist < 300) {
+      mouse.vx = nearest.x > mouse.x ? 1.5 : -1.5;
+    } else {
+      // Random wandering
+      if (Math.random() < 0.01) mouse.vx *= -1;
+    }
+
+    mouse.x += mouse.vx;
+
+    // Bounce off walls
     if (mouse.x < 0 || mouse.x > WORLD.width - 48) mouse.vx *= -1;
 
-    // Randomly change direction sometimes
-    if (Math.random() < 0.01) mouse.vx *= -1;
+    // Attack player if touching
+    for (const id in players) {
+      const p = players[id];
+      if (p.dead) continue;
+
+      if (
+        mouse.x < p.x + 48 &&
+        mouse.x + 32 > p.x &&
+        mouse.y < p.y + 48 &&
+        mouse.y + 32 > p.y
+      ) {
+        p.hp -= 1; // small damage per frame
+
+        if (p.hp <= 0 && !p.dead) {
+          p.dead = true;
+          p.vx = 0;
+          p.vy = -5;
+          p.deathTimer = 0;
+        }
+      }
+    }
   });
 
-  // Projectiles
+  // Projectiles hitting mice
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const pr = projectiles[i];
     pr.x += pr.vx;
@@ -166,14 +221,11 @@ function gameLoop() {
 
     for (const m of mice) {
       if (m.dead) continue;
-      if (pr.x > m.x && pr.x < m.x + 48 && pr.y > m.y && pr.y < m.y + 48) {
+      if (pr.x > m.x && pr.x < m.x + 32 && pr.y > m.y && pr.y < m.y + 32) {
         m.hp -= 10;
-
         if (m.hp <= 0) {
           m.dead = true;
           teamScore += 1;
-
-          // Respawn mouse after 5 seconds
           setTimeout(() => {
             m.dead = false;
             m.hp = 20;
@@ -182,7 +234,6 @@ function gameLoop() {
             m.vx = Math.random() > 0.5 ? 1.5 : -1.5;
           }, 3000);
         }
-
         projectiles.splice(i, 1);
         break;
       }
