@@ -30,16 +30,16 @@ const mice = [];
 const projectiles = [];
 let teamScore = 0;
 
-// Spawn mice
-for (let i = 0; i < 5; i++) {
+// Spawn more mice with more health
+for (let i = 0; i < 10; i++) { // 10 mice now
   mice.push({
     id: "m" + i,
-    x: 200 + i * 400,
+    x: 200 + i * 250, // spread out more
     y: WORLD.groundY - 48,
     vx: Math.random() > 0.5 ? 1.5 : -1.5,
     vy: 0,
-    hp: 20,
-    maxHp: 20,
+    hp: 30,       // more health
+    maxHp: 30,
     dead: false
   });
 }
@@ -70,6 +70,8 @@ function gameLoop() {
 
     platforms.forEach(plat => { if (collidePlatform(p, plat)) onGround = true; });
     if (p.y > WORLD.groundY - 48) { p.y = WORLD.groundY - 48; p.vy = 0; onGround = true; }
+
+    if (onGround) p.jumpCount = 0; // reset double jump when on ground
 
     p.onGround = onGround;
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
@@ -105,7 +107,7 @@ function gameLoop() {
       if (p.dead) continue;
       if (m.x < p.x + 48 && m.x + 32 > p.x && m.y < p.y + 48 && m.y + 32 > p.y) {
         p.hp -= 0.5;
-        if (p.hp <= 0) p.dead = true; // die immediately
+        if (p.hp <= 0) p.dead = true; 
       }
     }
   });
@@ -151,6 +153,7 @@ function gameLoop() {
       p.y = WORLD.groundY - 48;
       p.vx = 0;
       p.vy = 0;
+      p.jumpCount = 0; // reset double jump
     }
   }
 
@@ -161,12 +164,19 @@ setInterval(gameLoop, 1000/60);
 
 // Input & shooting
 io.on("connection", socket=>{
-  players[socket.id] = { id: socket.id, name:"Player"+socket.id.slice(0,4), x:50, y:WORLD.groundY-48, vx:0, vy:0, hp:100, dead:false, onGround:false };
+  players[socket.id] = { id: socket.id, name:"Player"+socket.id.slice(0,4), x:50, y:WORLD.groundY-48, vx:0, vy:0, hp:100, dead:false, onGround:false, jumpCount:0 };
 
   socket.on("input", input=>{
     const p = players[socket.id]; if(!p||p.dead) return;
     p.vx = input.left?-SPEED:input.right?SPEED:0;
-    if(input.jump && p.onGround) p.vy=-JUMP;
+
+    // Double jump
+    if (input.jump) {
+      if (p.onGround || p.jumpCount < 2) {
+        p.vy = -JUMP;
+        p.jumpCount++;
+      }
+    }
   });
 
   socket.on("shoot", data=>{
