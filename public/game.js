@@ -9,14 +9,23 @@ document.addEventListener("keyup", e => keys[e.key] = false);
 const sprite = new Image();
 sprite.src = "kiitygame.png";
 
+let spriteReady = false;
+sprite.onload = () => spriteReady = true;
+
 let gameState = null;
 let myId = null;
+let connected = false;
 let cameraX = 0;
 let cameraY = 0;
 
-socket.on("connect", () => myId = socket.id);
+socket.on("connect", () => {
+  myId = socket.id;
+  connected = true;
+});
 
 setInterval(() => {
+  if (!connected || !gameState || !gameState.players[myId]) return;
+
   socket.emit("input", {
     left: keys["a"] || keys["ArrowLeft"],
     right: keys["d"] || keys["ArrowRight"],
@@ -24,10 +33,13 @@ setInterval(() => {
   });
 }, 1000 / 60);
 
-socket.on("state", state => gameState = state);
+socket.on("state", state => {
+  gameState = state;
+});
 
 function draw() {
-  if (!gameState) return requestAnimationFrame(draw);
+  requestAnimationFrame(draw);
+  if (!gameState) return;
 
   const { players, platforms, world } = gameState;
   const me = players[myId];
@@ -40,33 +52,28 @@ function draw() {
     cameraY = Math.max(0, Math.min(world.height - canvas.height, cameraY));
   }
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Background
   ctx.fillStyle = "#5c94fc";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
   ctx.translate(-cameraX, -cameraY);
 
-  // Ground
   ctx.fillStyle = "#228B22";
   ctx.fillRect(0, world.groundY, world.width, world.height - world.groundY);
 
-  // Platforms
   ctx.fillStyle = "#654321";
   platforms.forEach(p =>
     ctx.fillRect(p.x, p.y, p.w, p.h)
   );
 
-  // Players
-  for (const id in players) {
-    const p = players[id];
-    ctx.drawImage(sprite, p.x, p.y, 48, 48);
+  if (spriteReady) {
+    for (const id in players) {
+      const p = players[id];
+      ctx.drawImage(sprite, p.x, p.y, 48, 48);
+    }
   }
 
   ctx.restore();
-  requestAnimationFrame(draw);
 }
 
 draw();
