@@ -60,6 +60,8 @@ function draw(){
 
   // Mice
   mice.forEach(m=>{
+    if (m.dead) return; // skip dead mice
+
     if(mouseReady) ctx.drawImage(mouseSprite,m.x,m.y,32,32);
     else ctx.fillStyle="gray", ctx.fillRect(m.x,m.y,32,32);
 
@@ -75,6 +77,7 @@ function draw(){
     ctx.save();
     let flip = false;
     if (id === myId) flip = (mouseX + cameraX) < (p.x + 24);
+    
     if(flip){
       ctx.translate(p.x+48,p.y);
       ctx.scale(-1,1);
@@ -85,6 +88,8 @@ function draw(){
       else ctx.fillStyle="orange", ctx.fillRect(p.x,p.y,48,48);
     }
 
+    ctx.restore(); // restore before drawing health/name
+
     // Health bar
     ctx.fillStyle="red"; ctx.fillRect(p.x,p.y-10,48,6);
     ctx.fillStyle="lime"; ctx.fillRect(p.x,p.y-10,48*(p.hp/100),6);
@@ -92,8 +97,6 @@ function draw(){
     // Name tag
     ctx.fillStyle="white"; ctx.font="12px Arial"; ctx.textAlign="center";
     ctx.fillText(p.name,p.x+24,p.y-15);
-
-    ctx.restore();
   }
 
   // Team Score
