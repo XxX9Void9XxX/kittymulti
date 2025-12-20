@@ -2,6 +2,7 @@ const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// Input handling
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
@@ -20,16 +21,18 @@ canvas.addEventListener("click", e => {
   });
 });
 
-const sprite = new Image();
-sprite.src = "kiitygame.png";
+// Load sprites
+const playerSprite = new Image();
+playerSprite.src = "kiitygame.png";
 const mouseSprite = new Image();
 mouseSprite.src = "mouse.png";
 
-let spriteReady = false;
+let playerReady = false;
 let mouseReady = false;
-sprite.onload = () => spriteReady = true;
+playerSprite.onload = () => playerReady = true;
 mouseSprite.onload = () => mouseReady = true;
 
+// Game state
 let gameState = null;
 let myId = null;
 let cameraX = 0;
@@ -37,6 +40,7 @@ let cameraY = 0;
 
 socket.on("connect", () => myId = socket.id);
 
+// Send input to server
 setInterval(() => {
   if (!gameState || !gameState.players[myId]) return;
 
@@ -48,8 +52,10 @@ setInterval(() => {
   });
 }, 1000 / 60);
 
+// Receive state
 socket.on("state", state => gameState = state);
 
+// Draw loop
 function draw() {
   requestAnimationFrame(draw);
   if (!gameState) return;
@@ -57,11 +63,13 @@ function draw() {
   const { players, platforms, projectiles, mice, world, score } = gameState;
   const me = players[myId];
 
+  // Camera follows player
   if (me) {
     cameraX = Math.max(0, Math.min(world.width - canvas.width, me.x - canvas.width / 2));
     cameraY = Math.max(0, Math.min(world.height - canvas.height, me.y - canvas.height / 2));
   }
 
+  // Clear screen
   ctx.fillStyle = "#5c94fc";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -85,41 +93,59 @@ function draw() {
   });
 
   // Mice
-  if (mouseReady) {
-    mice.forEach(m => {
-      if (m.dead) return;
-      ctx.drawImage(mouseSprite, m.x, m.y, 32, 32);
-      // Health bar
-      ctx.fillStyle = "red";
-      ctx.fillRect(m.x, m.y - 6, 32, 4);
-      ctx.fillStyle = "lime";
-      ctx.fillRect(m.x, m.y - 6, 32 * (m.hp / 20), 4);
-    });
-  }
+  mice.forEach(m => {
+    if (m.dead) return;
+
+    // Draw mouse sprite if ready, otherwise fallback rectangle
+    if (mouseReady) ctx.drawImage(mouseSprite, m.x, m.y, 32, 32);
+    else {
+      ctx.fillStyle = "gray";
+      ctx.fillRect(m.x, m.y, 32, 32);
+    }
+
+    // Mouse health bar
+    ctx.fillStyle = "red";
+    ctx.fillRect(m.x, m.y - 6, 32, 4);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(m.x, m.y - 6, 32 * (m.hp / 20), 4);
+  });
 
   // Players
-  if (spriteReady) {
-    for (const id in players) {
-      const p = players[id];
+  for (const id in players) {
+    const p = players[id];
 
+    if (!p.dead) {
       ctx.save();
       ctx.translate(p.x + 24, p.y);
       ctx.scale(p.facingLeft ? -1 : 1, 1);
-      ctx.drawImage(sprite, -24, 0, 48, 48);
+      if (playerReady) ctx.drawImage(playerSprite, -24, 0, 48, 48);
+      else {
+        ctx.fillStyle = "orange";
+        ctx.fillRect(-24, 0, 48, 48);
+      }
       ctx.restore();
-
-      // Name tag
-      ctx.fillStyle = "white";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(p.name, p.x + 24, p.y - 18);
-
-      // Health bar
-      ctx.fillStyle = "red";
-      ctx.fillRect(p.x, p.y - 12, 48, 6);
-      ctx.fillStyle = "lime";
-      ctx.fillRect(p.x, p.y - 12, 48 * (p.hp / 100), 6);
+    } else {
+      // Death animation
+      ctx.save();
+      ctx.translate(p.x + 24, p.y + 24);
+      ctx.rotate(Math.PI / 2);
+      if (playerReady) ctx.drawImage(playerSprite, -24, -24, 48, 48);
+      else ctx.fillStyle = "orange";
+      ctx.fillRect(-24, -24, 48, 48);
+      ctx.restore();
     }
+
+    // Name tag
+    ctx.fillStyle = "white";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(p.name, p.x + 24, p.y - 18);
+
+    // Health bar
+    ctx.fillStyle = "red";
+    ctx.fillRect(p.x, p.y - 12, 48, 6);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(p.x, p.y - 12, 48 * (p.hp / 100), 6);
   }
 
   ctx.restore();
