@@ -26,8 +26,13 @@ const keys = {};
 let mouse = { x: 0, y: 0 };
 let lastJumpPressed = false;
 
-window.addEventListener("keydown", e => keys[e.key] = true);
-window.addEventListener("keyup", e => keys[e.key] = false);
+window.addEventListener("keydown", e => {
+  keys[e.key] = true;
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.key] = false;
+});
 
 canvas.addEventListener("mousemove", e => {
   mouse.x = e.clientX;
@@ -36,11 +41,9 @@ canvas.addEventListener("mousemove", e => {
 
 canvas.addEventListener("click", () => {
   if (!state || !state.players[myId]) return;
-  const camX = camera.x;
-  const camY = camera.y;
   socket.emit("shoot", {
-    x: mouse.x + camX,
-    y: mouse.y + camY
+    x: mouse.x + camera.x,
+    y: mouse.y + camera.y
   });
 });
 
@@ -52,7 +55,9 @@ socket.on("connect", () => {
   myId = socket.id;
 });
 
-socket.on("state", s => state = s);
+socket.on("state", s => {
+  state = s;
+});
 
 // ---------------- SEND INPUT ----------------
 setInterval(() => {
@@ -83,8 +88,15 @@ function draw() {
   // Camera follow
   camera.x = me.x - canvas.width / 2 + 24;
   camera.y = me.y - canvas.height / 2 + 24;
-  camera.x = Math.max(0, Math.min(state.world.width - canvas.width, camera.x));
-  camera.y = Math.max(0, Math.min(state.world.height - canvas.height, camera.y));
+
+  camera.x = Math.max(
+    0,
+    Math.min(state.world.width - canvas.width, camera.x)
+  );
+  camera.y = Math.max(
+    0,
+    Math.min(state.world.height - canvas.height, camera.y)
+  );
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -92,10 +104,10 @@ function draw() {
   ctx.translate(-camera.x, -camera.y);
 
   // ---------------- PLATFORMS ----------------
-  ctx.fillStyle = "#5a3d1e";
-  state.platforms.forEach(p =>
-    ctx.fillRect(p.x, p.y, p.w, p.h)
-  );
+  ctx.fillStyle = "#5b3a1e";
+  state.platforms.forEach(p => {
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  });
 
   // ---------------- PLAYERS ----------------
   for (const id in state.players) {
@@ -127,7 +139,12 @@ function draw() {
   // ---------------- MICE ----------------
   state.mice.forEach(m => {
     if (m.dead) return;
-    ctx.drawImage(mouseImg, m.x, m.y, 32, 32);
+
+    ctx.save();
+    ctx.translate(m.x + 16, m.y);
+    ctx.scale(m.vx < 0 ? -1 : 1, 1);
+    ctx.drawImage(mouseImg, -16, 0, 32, 32);
+    ctx.restore();
 
     ctx.fillStyle = "red";
     ctx.fillRect(m.x, m.y - 6, 32, 4);
@@ -138,7 +155,12 @@ function draw() {
   // ---------------- BIRDS ----------------
   state.birds.forEach(b => {
     if (b.dead) return;
-    ctx.drawImage(birdImg, b.x, b.y, 48, 48);
+
+    ctx.save();
+    ctx.translate(b.x + 24, b.y);
+    ctx.scale(b.vx < 0 ? -1 : 1, 1);
+    ctx.drawImage(birdImg, -24, 0, 48, 48);
+    ctx.restore();
 
     ctx.fillStyle = "red";
     ctx.fillRect(b.x, b.y - 6, 48, 4);
@@ -159,6 +181,7 @@ function draw() {
   // ---------------- UI ----------------
   ctx.fillStyle = "white";
   ctx.font = "18px Arial";
+  ctx.textAlign = "left";
   ctx.fillText("Team Score: " + state.score, 20, 30);
 }
 
