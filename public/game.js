@@ -2,7 +2,7 @@ const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// Fullscreen canvas
+// Fullscreen
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -10,9 +10,12 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
+// Input
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
+
+let lastJumpPressed = false;
 
 let mouseX = 0, mouseY = 0;
 canvas.addEventListener("mousemove", e => {
@@ -23,26 +26,35 @@ canvas.addEventListener("click", () => {
   socket.emit("shoot", { x: mouseX + camX, y: mouseY + camY });
 });
 
+// Sprites
 const playerImg = new Image();
 playerImg.src = "kiitygame.png";
 const mouseImg = new Image();
 mouseImg.src = "mouse.png";
 
-let state = null, myId = null;
+let state = null;
+let myId = null;
 let camX = 0, camY = 0;
 
 socket.on("connect", () => myId = socket.id);
 socket.on("state", s => state = s);
 
+// SEND INPUT (edge-triggered jump)
 setInterval(() => {
   if (!state || !state.players[myId]) return;
+
+  const jumpHeld = keys["w"] || keys[" "] || keys["ArrowUp"];
+
   socket.emit("input", {
-    left: keys.a || keys.ArrowLeft,
-    right: keys.d || keys.ArrowRight,
-    jump: keys.w || keys[" "] || keys.ArrowUp
+    left: keys["a"] || keys["ArrowLeft"],
+    right: keys["d"] || keys["ArrowRight"],
+    jump: jumpHeld && !lastJumpPressed
   });
+
+  lastJumpPressed = jumpHeld;
 }, 1000 / 60);
 
+// DRAW
 function draw() {
   requestAnimationFrame(draw);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -64,7 +76,7 @@ function draw() {
   ctx.fillStyle = "#654321";
   state.platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
 
-  // Yarn balls (colored)
+  // Yarn balls
   state.projectiles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
