@@ -15,6 +15,7 @@ app.get("/", (req, res) =>
 const GRAVITY = 0.5;
 const SPEED = 4;
 const JUMP = 10;
+
 const WORLD = { width: 3000, height: 900, groundY: 800 };
 
 const platforms = [
@@ -29,10 +30,11 @@ const platforms = [
 
 const players = {};
 const mice = [];
+const birds = [];
 const projectiles = [];
 let teamScore = 0;
 
-// --------- HELPERS ----------
+// ---------------- HELPERS ----------------
 function collide(obj, plat, h = 48) {
   if (
     obj.x < plat.x + plat.w &&
@@ -53,7 +55,7 @@ function randomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// --------- SPAWN MICE ----------
+// ---------------- SPAWN MICE ----------------
 for (let i = 0; i < 12; i++) {
   mice.push({
     id: "m" + i,
@@ -67,9 +69,24 @@ for (let i = 0; i < 12; i++) {
   });
 }
 
-// --------- GAME LOOP ----------
+// ---------------- SPAWN BIRDS ----------------
+for (let i = 0; i < 6; i++) {
+  birds.push({
+    id: "b" + i,
+    x: 300 + i * 400,
+    y: 150 + Math.random() * 200,
+    vx: Math.random() > 0.5 ? 2 : -2,
+    vy: 0,
+    hp: 30,
+    maxHp: 30,
+    swoopCooldown: 0,
+    dead: false
+  });
+}
+
+// ---------------- GAME LOOP ----------------
 function gameLoop() {
-  // Players
+  // ---- PLAYERS ----
   for (const id in players) {
     const p = players[id];
     if (p.dead) continue;
@@ -89,10 +106,11 @@ function gameLoop() {
 
     if (onGround) p.jumpCount = 0;
     p.onGround = onGround;
+
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
   }
 
-  // Mice
+  // ---- MICE ----
   mice.forEach(m => {
     if (m.dead) return;
 
@@ -107,14 +125,14 @@ function gameLoop() {
       m.vy = 0;
     }
 
-    let nearest = null, dMin = 9999;
+    let nearest = null, dist = 9999;
     for (const id in players) {
       const p = players[id];
       const d = Math.hypot(p.x - m.x, p.y - m.y);
-      if (d < dMin) { dMin = d; nearest = p; }
+      if (d < dist) { dist = d; nearest = p; }
     }
 
-    if (nearest && dMin < 300)
+    if (nearest && dist < 300)
       m.vx = nearest.x > m.x ? 1.6 : -1.6;
     else if (Math.random() < 0.01)
       m.vx *= -1;
@@ -134,41 +152,86 @@ function gameLoop() {
     }
   });
 
-  // Projectiles
+  // ---- BIRDS (FLY + SWOOP) ----
+  birds.forEach(b => {
+    if (b.dead) return;
+
+    b.x += b.vx;
+
+    if (b.x < 0 || b.x > WORLD.width - 48)
+      b.vx *= -1;
+
+    if (b.swoopCooldown > 0) b.swoopCooldown--;
+
+    let target = null;
+    let dist = 9999;
+    for (const id in players) {
+      const p = players[id];
+      const d = Math.hypot(p.x - b.x, p.y - b.y);
+      if (d < dist) { dist = d; target = p; }
+    }
+
+    if (target && dist < 350 && b.swoopCooldown === 0) {
+      const dx = target.x - b.x;
+      const dy = target.y - b.y;
+      const len = Math.hypot(dx, dy) || 1;
+      b.vx = (dx / len) * 4;
+      b.vy = (dy / len) * 4;
+      b.swoopCooldown = 120;
+    }
+
+    b.y += b.vy;
+    b.vy *= 0.95;
+
+    for (const id in players) {
+      const p = players[id];
+      if (p.dead) continue;
+      if (
+        b.x < p.x + 48 &&
+        b.x + 48 > p.x &&
+        b.y < p.y + 48 &&
+        b.y + 48 > p.y
+      ) {
+        p.hp -= 1;
+        if (p.hp <= 0) p.dead = true;
+      }
+    }
+  });
+
+  // ---- PROJECTILES ----
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const pr = projectiles[i];
     pr.x += pr.vx;
     pr.y += pr.vy;
     pr.life--;
 
-    for (const m of mice) {
-      if (m.dead) continue;
+    [...mice, ...birds].forEach(e => {
+      if (e.dead) return;
       if (
-        pr.x > m.x &&
-        pr.x < m.x + 32 &&
-        pr.y > m.y &&
-        pr.y < m.y + 32
+        pr.x > e.x &&
+        pr.x < e.x + 48 &&
+        pr.y > e.y &&
+        pr.y < e.y + 48
       ) {
-        m.hp -= 10;
-        if (m.hp <= 0) {
-          m.dead = true;
+        e.hp -= 10;
+        if (e.hp <= 0) {
+          e.dead = true;
           teamScore++;
           setTimeout(() => {
-            m.dead = false;
-            m.hp = m.maxHp;
-            m.x = Math.random() * (WORLD.width - 32);
-            m.y = WORLD.groundY - 32;
+            e.dead = false;
+            e.hp = e.maxHp;
+            e.x = Math.random() * (WORLD.width - 48);
+            e.y = e.id.startsWith("b") ? 200 : WORLD.groundY - 32;
           }, 3000);
         }
         projectiles.splice(i, 1);
-        break;
       }
-    }
+    });
 
     if (pr.life <= 0) projectiles.splice(i, 1);
   }
 
-  // Respawn players instantly
+  // ---- RESPAWN PLAYERS ----
   for (const id in players) {
     const p = players[id];
     if (p.dead) {
@@ -181,12 +244,16 @@ function gameLoop() {
     }
   }
 
-  io.emit("state", { players, mice, platforms, world: WORLD, projectiles, score: teamScore });
+  io.emit("state", {
+    players, mice, birds,
+    platforms, world: WORLD,
+    projectiles, score: teamScore
+  });
 }
 
 setInterval(gameLoop, 1000 / 60);
 
-// --------- SOCKETS ----------
+// ---------------- SOCKETS ----------------
 io.on("connection", socket => {
   players[socket.id] = {
     id: socket.id,
@@ -204,9 +271,7 @@ io.on("connection", socket => {
   socket.on("input", i => {
     const p = players[socket.id];
     if (!p) return;
-
     p.vx = i.left ? -SPEED : i.right ? SPEED : 0;
-
     if (i.jump && (p.onGround || p.jumpCount < 2)) {
       p.vy = -JUMP;
       p.jumpCount++;
@@ -216,11 +281,9 @@ io.on("connection", socket => {
   socket.on("shoot", data => {
     const p = players[socket.id];
     if (!p) return;
-
     const dx = data.x - (p.x + 24);
     const dy = data.y - (p.y + 24);
     const len = Math.hypot(dx, dy) || 1;
-
     projectiles.push({
       x: p.x + 24,
       y: p.y + 24,
