@@ -32,21 +32,7 @@ const mice = [];
 const projectiles = [];
 let teamScore = 0;
 
-// ---------- MICE ----------
-for (let i = 0; i < 12; i++) {
-  mice.push({
-    id: "m" + i,
-    x: 200 + i * 220,
-    y: WORLD.groundY - 32,
-    vx: Math.random() > 0.5 ? 1.5 : -1.5,
-    vy: 0,
-    hp: 40,
-    maxHp: 40,
-    dead: false
-  });
-}
-
-// ---------- HELPERS ----------
+// --------- HELPERS ----------
 function collide(obj, plat, h = 48) {
   if (
     obj.x < plat.x + plat.w &&
@@ -67,7 +53,21 @@ function randomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// ---------- GAME LOOP ----------
+// --------- SPAWN MICE ----------
+for (let i = 0; i < 12; i++) {
+  mice.push({
+    id: "m" + i,
+    x: 200 + i * 220,
+    y: WORLD.groundY - 32,
+    vx: Math.random() > 0.5 ? 1.5 : -1.5,
+    vy: 0,
+    hp: 40,
+    maxHp: 40,
+    dead: false
+  });
+}
+
+// --------- GAME LOOP ----------
 function gameLoop() {
   // Players
   for (const id in players) {
@@ -153,7 +153,6 @@ function gameLoop() {
         if (m.hp <= 0) {
           m.dead = true;
           teamScore++;
-
           setTimeout(() => {
             m.dead = false;
             m.hp = m.maxHp;
@@ -187,7 +186,7 @@ function gameLoop() {
 
 setInterval(gameLoop, 1000 / 60);
 
-// ---------- SOCKETS ----------
+// --------- SOCKETS ----------
 io.on("connection", socket => {
   players[socket.id] = {
     id: socket.id,
@@ -205,7 +204,9 @@ io.on("connection", socket => {
   socket.on("input", i => {
     const p = players[socket.id];
     if (!p) return;
+
     p.vx = i.left ? -SPEED : i.right ? SPEED : 0;
+
     if (i.jump && (p.onGround || p.jumpCount < 2)) {
       p.vy = -JUMP;
       p.jumpCount++;
@@ -215,6 +216,7 @@ io.on("connection", socket => {
   socket.on("shoot", data => {
     const p = players[socket.id];
     if (!p) return;
+
     const dx = data.x - (p.x + 24);
     const dy = data.y - (p.y + 24);
     const len = Math.hypot(dx, dy) || 1;
