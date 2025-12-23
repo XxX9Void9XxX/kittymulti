@@ -23,18 +23,10 @@ const WORLD = {
   groundY: 2000
 };
 
-// ---------------- PLATFORMS (EASIER) ----------------
+// ---------------- PLATFORMS (EASY) ----------------
 const platforms = [];
+platforms.push({ x: 0, y: WORLD.groundY, w: WORLD.width, h: 200 });
 
-// Ground
-platforms.push({
-  x: 0,
-  y: WORLD.groundY,
-  w: WORLD.width,
-  h: 200
-});
-
-// Easier, closer platforms
 for (let i = 0; i < 70; i++) {
   platforms.push({
     x: i * 400 + 200,
@@ -74,7 +66,7 @@ function randomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// ---------------- SPAWN MICE (LESS) ----------------
+// ---------------- SPAWN MICE ----------------
 for (let i = 0; i < 35; i++) {
   mice.push({
     id: "m" + i,
@@ -107,7 +99,6 @@ for (let i = 0; i < 45; i++) {
 
 // ---------------- GAME LOOP ----------------
 function gameLoop() {
-
   // ---- PLAYERS ----
   for (const id in players) {
     const p = players[id];
@@ -148,6 +139,7 @@ function gameLoop() {
       m.jumpCount = 0;
     }
 
+    // Chase nearest player
     let nearest = null;
     let dist = Infinity;
     for (const id in players) {
@@ -189,6 +181,7 @@ function gameLoop() {
 
     if (b.swoopCooldown > 0) b.swoopCooldown--;
 
+    // Target nearest player
     let target = null;
     let dist = Infinity;
     for (const id in players) {
@@ -223,7 +216,7 @@ function gameLoop() {
     }
   });
 
-  // ---- PROJECTILES (FIXED) ----
+  // ---- PROJECTILES ----
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const pr = projectiles[i];
     pr.x += pr.vx;
@@ -255,13 +248,11 @@ function gameLoop() {
               : WORLD.groundY - 32;
           }, 4000);
         }
-        break; // 🧶 stop checking others
+        break;
       }
     }
 
-    if (hit || pr.life <= 0) {
-      projectiles.splice(i, 1);
-    }
+    if (hit || pr.life <= 0) projectiles.splice(i, 1);
   }
 
   // ---- RESPAWN PLAYERS ----
@@ -305,6 +296,21 @@ io.on("connection", socket => {
     jumpCount: 0
   };
 
+  // Set username
+  socket.on("setName", name => {
+    if (players[socket.id]) {
+      players[socket.id].name = name.slice(0, 16);
+    }
+  });
+
+  // Chat
+  socket.on("chat", msg => {
+    const p = players[socket.id];
+    if (!p) return;
+    io.emit("chat", `${p.name}: ${msg.slice(0, 100)}`);
+  });
+
+  // Movement
   socket.on("input", i => {
     const p = players[socket.id];
     if (!p) return;
@@ -315,6 +321,7 @@ io.on("connection", socket => {
     }
   });
 
+  // Shooting
   socket.on("shoot", data => {
     const p = players[socket.id];
     if (!p) return;
@@ -327,11 +334,11 @@ io.on("connection", socket => {
       vx: (dx / len) * 8,
       vy: (dy / len) * 8,
       life: 120,
-      color: randomColor()
+      color: ["#ff69b4","#00ffff","#ffff00","#ffa500","#00ff00","#ff4444"][Math.floor(Math.random()*6)]
     });
   });
 
   socket.on("disconnect", () => delete players[socket.id]);
 });
 
-server.listen(3000, () => console.log("Server running"));
+server.listen(3000, () => console.log("Server running on port 3000"));
