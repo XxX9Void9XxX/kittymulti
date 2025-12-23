@@ -12,22 +12,68 @@ app.get("/", (req, res) =>
   res.sendFile(path.join(__dirname, "public/index.html"))
 );
 
+// ---------------- CONSTANTS ----------------
 const GRAVITY = 0.5;
 const SPEED = 4;
 const JUMP = 10;
 
-const WORLD = { width: 3000, height: 900, groundY: 800 };
+// 🌍 WORLD IS ~10× BIGGER
+const WORLD = {
+  width: 30000,
+  height: 3000,
+  groundY: 2600
+};
 
-const platforms = [
-  { x: 0, y: WORLD.groundY, w: WORLD.width, h: 100 },
-  { x: 300, y: 650, w: 200, h: 20 },
-  { x: 700, y: 550, w: 200, h: 20 },
-  { x: 1100, y: 450, w: 200, h: 20 },
-  { x: 1500, y: 350, w: 200, h: 20 },
-  { x: 1900, y: 550, w: 200, h: 20 },
-  { x: 2300, y: 450, w: 200, h: 20 }
-];
+// ---------------- PLATFORMS ----------------
+const platforms = [];
 
+// Ground
+platforms.push({
+  x: 0,
+  y: WORLD.groundY,
+  w: WORLD.width,
+  h: 200
+});
+
+// Repeating platform sections
+for (let i = 0; i < 30; i++) {
+  const baseX = i * 1000;
+
+  // Stair steps
+  for (let j = 0; j < 5; j++) {
+    platforms.push({
+      x: baseX + j * 120,
+      y: WORLD.groundY - 150 - j * 80,
+      w: 100,
+      h: 20
+    });
+  }
+
+  // Floating islands
+  platforms.push(
+    { x: baseX + 400, y: 1700, w: 250, h: 20 },
+    { x: baseX + 700, y: 1400, w: 200, h: 20 },
+    { x: baseX + 900, y: 1100, w: 300, h: 20 }
+  );
+
+  // Tall tower
+  platforms.push({
+    x: baseX + 1200,
+    y: 1800,
+    w: 80,
+    h: 800
+  });
+
+  // Long bridge
+  platforms.push({
+    x: baseX + 1500,
+    y: 2000,
+    w: 500,
+    h: 20
+  });
+}
+
+// ---------------- GAME OBJECTS ----------------
 const players = {};
 const mice = [];
 const birds = [];
@@ -55,30 +101,30 @@ function randomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// ---------------- SPAWN MICE ----------------
-for (let i = 0; i < 12; i++) {
+// ---------------- SPAWN MICE (~5×) ----------------
+for (let i = 0; i < 60; i++) {
   mice.push({
     id: "m" + i,
-    x: 200 + i * 220,
+    x: Math.random() * (WORLD.width - 100),
     y: WORLD.groundY - 32,
     vx: Math.random() > 0.5 ? 1.5 : -1.5,
     vy: 0,
-    hp: 40,
-    maxHp: 40,
+    hp: 60,
+    maxHp: 60,
     dead: false
   });
 }
 
-// ---------------- SPAWN BIRDS ----------------
-for (let i = 0; i < 6; i++) {
+// ---------------- SPAWN BIRDS (~5×) ----------------
+for (let i = 0; i < 30; i++) {
   birds.push({
     id: "b" + i,
-    x: 300 + i * 400,
-    y: 150 + Math.random() * 200,
+    x: Math.random() * (WORLD.width - 100),
+    y: 300 + Math.random() * 1000,
     vx: Math.random() > 0.5 ? 2 : -2,
     vy: 0,
-    hp: 30,
-    maxHp: 30,
+    hp: 45,
+    maxHp: 45,
     swoopCooldown: 0,
     dead: false
   });
@@ -96,7 +142,9 @@ function gameLoop() {
     p.y += p.vy;
 
     let onGround = false;
-    platforms.forEach(pl => { if (collide(p, pl)) onGround = true; });
+    platforms.forEach(pl => {
+      if (collide(p, pl)) onGround = true;
+    });
 
     if (p.y > WORLD.groundY - 48) {
       p.y = WORLD.groundY - 48;
@@ -125,17 +173,15 @@ function gameLoop() {
       m.vy = 0;
     }
 
-    let nearest = null, dist = 9999;
+    let nearest = null, dist = Infinity;
     for (const id in players) {
       const p = players[id];
       const d = Math.hypot(p.x - m.x, p.y - m.y);
       if (d < dist) { dist = d; nearest = p; }
     }
 
-    if (nearest && dist < 300)
-      m.vx = nearest.x > m.x ? 1.6 : -1.6;
-    else if (Math.random() < 0.01)
-      m.vx *= -1;
+    if (nearest && dist < 350)
+      m.vx = nearest.x > m.x ? 2 : -2;
 
     for (const id in players) {
       const p = players[id];
@@ -146,42 +192,39 @@ function gameLoop() {
         m.y < p.y + 48 &&
         m.y + 32 > p.y
       ) {
-        p.hp -= 0.5;
+        p.hp -= 0.4;
         if (p.hp <= 0) p.dead = true;
       }
     }
   });
 
-  // ---- BIRDS (FLY + SWOOP) ----
+  // ---- BIRDS ----
   birds.forEach(b => {
     if (b.dead) return;
 
     b.x += b.vx;
-
-    if (b.x < 0 || b.x > WORLD.width - 48)
-      b.vx *= -1;
+    if (b.x < 0 || b.x > WORLD.width - 48) b.vx *= -1;
 
     if (b.swoopCooldown > 0) b.swoopCooldown--;
 
-    let target = null;
-    let dist = 9999;
+    let target = null, dist = Infinity;
     for (const id in players) {
       const p = players[id];
       const d = Math.hypot(p.x - b.x, p.y - b.y);
       if (d < dist) { dist = d; target = p; }
     }
 
-    if (target && dist < 350 && b.swoopCooldown === 0) {
+    if (target && dist < 400 && b.swoopCooldown === 0) {
       const dx = target.x - b.x;
       const dy = target.y - b.y;
       const len = Math.hypot(dx, dy) || 1;
-      b.vx = (dx / len) * 4;
-      b.vy = (dy / len) * 4;
+      b.vx = (dx / len) * 5;
+      b.vy = (dy / len) * 5;
       b.swoopCooldown = 120;
     }
 
     b.y += b.vy;
-    b.vy *= 0.95;
+    b.vy *= 0.96;
 
     for (const id in players) {
       const p = players[id];
@@ -192,7 +235,7 @@ function gameLoop() {
         b.y < p.y + 48 &&
         b.y + 48 > p.y
       ) {
-        p.hp -= 1;
+        p.hp -= 0.8;
         if (p.hp <= 0) p.dead = true;
       }
     }
@@ -213,16 +256,16 @@ function gameLoop() {
         pr.y > e.y &&
         pr.y < e.y + 48
       ) {
-        e.hp -= 10;
+        e.hp -= 12;
         if (e.hp <= 0) {
           e.dead = true;
           teamScore++;
           setTimeout(() => {
             e.dead = false;
             e.hp = e.maxHp;
-            e.x = Math.random() * (WORLD.width - 48);
-            e.y = e.id.startsWith("b") ? 200 : WORLD.groundY - 32;
-          }, 3000);
+            e.x = Math.random() * (WORLD.width - 100);
+            e.y = e.id.startsWith("b") ? 300 : WORLD.groundY - 32;
+          }, 4000);
         }
         projectiles.splice(i, 1);
       }
@@ -245,9 +288,13 @@ function gameLoop() {
   }
 
   io.emit("state", {
-    players, mice, birds,
-    platforms, world: WORLD,
-    projectiles, score: teamScore
+    players,
+    mice,
+    birds,
+    platforms,
+    world: WORLD,
+    projectiles,
+    score: teamScore
   });
 }
 
