@@ -23,10 +23,9 @@ const WORLD = {
   groundY: 2000
 };
 
-// ---------------- PLATFORMS (EASY) ----------------
+// ---------------- PLATFORMS ----------------
 const platforms = [];
 platforms.push({ x: 0, y: WORLD.groundY, w: WORLD.width, h: 200 });
-
 for (let i = 0; i < 70; i++) {
   platforms.push({
     x: i * 400 + 200,
@@ -47,7 +46,7 @@ let teamScore = 0;
 function collide(obj, plat, h) {
   if (
     obj.x < plat.x + plat.w &&
-    obj.x + 48 > plat.x &&
+    obj.x + (obj.w || 48) > plat.x &&
     obj.y + h > plat.y &&
     obj.y + h < plat.y + plat.h &&
     obj.vy >= 0
@@ -62,7 +61,7 @@ function collide(obj, plat, h) {
 }
 
 function randomColor() {
-  const colors = ["#ff69b4", "#00ffff", "#ffff00", "#ffa500", "#00ff00", "#ff4444"];
+  const colors = ["#ff69b4","#00ffff","#ffff00","#ffa500","#00ff00","#ff4444"];
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
@@ -99,6 +98,7 @@ for (let i = 0; i < 45; i++) {
 
 // ---------------- GAME LOOP ----------------
 function gameLoop() {
+
   // ---- PLAYERS ----
   for (const id in players) {
     const p = players[id];
@@ -124,14 +124,12 @@ function gameLoop() {
   // ---- MICE ----
   mice.forEach(m => {
     if (m.dead) return;
-
     m.vy += GRAVITY;
     m.x += m.vx;
     m.y += m.vy;
     m.onGround = false;
 
     platforms.forEach(pl => collide(m, pl, 32));
-
     if (m.y > WORLD.groundY - 32) {
       m.y = WORLD.groundY - 32;
       m.vy = 0;
@@ -147,10 +145,8 @@ function gameLoop() {
       const d = Math.hypot(p.x - m.x, p.y - m.y);
       if (d < dist) { dist = d; nearest = p; }
     }
-
     if (nearest) {
       m.vx = nearest.x > m.x ? 2 : -2;
-
       if (dist < 260 && (m.onGround || m.jumpCount < 2)) {
         m.vy = -8;
         m.jumpCount++;
@@ -175,7 +171,6 @@ function gameLoop() {
   // ---- BIRDS ----
   birds.forEach(b => {
     if (b.dead) return;
-
     b.x += b.vx;
     b.y += b.vy;
 
@@ -224,18 +219,11 @@ function gameLoop() {
     pr.life--;
 
     let hit = false;
-
     for (const e of [...mice, ...birds]) {
       if (e.dead) continue;
-      if (
-        pr.x > e.x &&
-        pr.x < e.x + 48 &&
-        pr.y > e.y &&
-        pr.y < e.y + 48
-      ) {
+      if (pr.x > e.x && pr.x < e.x + 48 && pr.y > e.y && pr.y < e.y + 48) {
         e.hp -= 12;
         hit = true;
-
         if (e.hp <= 0) {
           e.dead = true;
           teamScore++;
@@ -243,12 +231,10 @@ function gameLoop() {
             e.dead = false;
             e.hp = e.maxHp;
             e.x = Math.random() * (WORLD.width - 100);
-            e.y = e.id.startsWith("b")
-              ? WORLD.groundY - 500
-              : WORLD.groundY - 32;
+            e.y = e.id.startsWith("b") ? WORLD.groundY - 500 : WORLD.groundY - 32;
           }, 4000);
         }
-        break;
+        break; // Only remove projectile for this hit
       }
     }
 
@@ -269,13 +255,7 @@ function gameLoop() {
   }
 
   io.emit("state", {
-    players,
-    mice,
-    birds,
-    platforms,
-    world: WORLD,
-    projectiles,
-    score: teamScore
+    players, mice, birds, platforms, world: WORLD, projectiles, score: teamScore
   });
 }
 
@@ -286,31 +266,25 @@ io.on("connection", socket => {
   players[socket.id] = {
     id: socket.id,
     name: "Player" + socket.id.slice(0, 4),
-    x: 50,
-    y: WORLD.groundY - 48,
-    vx: 0,
-    vy: 0,
-    hp: 100,
-    dead: false,
-    onGround: false,
-    jumpCount: 0
+    x: 50, y: WORLD.groundY - 48,
+    vx: 0, vy: 0,
+    hp: 100, dead: false,
+    onGround: false, jumpCount: 0
   };
 
-  // Set username
+  // Username
   socket.on("setName", name => {
-    if (players[socket.id]) {
-      players[socket.id].name = name.slice(0, 16);
-    }
+    if (players[socket.id]) players[socket.id].name = name.slice(0,16);
   });
 
   // Chat
   socket.on("chat", msg => {
     const p = players[socket.id];
     if (!p) return;
-    io.emit("chat", `${p.name}: ${msg.slice(0, 100)}`);
+    io.emit("chat", `${p.name}: ${msg.slice(0,100)}`);
   });
 
-  // Movement
+  // Movement input
   socket.on("input", i => {
     const p = players[socket.id];
     if (!p) return;
@@ -321,7 +295,7 @@ io.on("connection", socket => {
     }
   });
 
-  // Shooting
+  // Shoot yarn
   socket.on("shoot", data => {
     const p = players[socket.id];
     if (!p) return;
@@ -329,12 +303,10 @@ io.on("connection", socket => {
     const dy = data.y - (p.y + 24);
     const len = Math.hypot(dx, dy) || 1;
     projectiles.push({
-      x: p.x + 24,
-      y: p.y + 24,
-      vx: (dx / len) * 8,
-      vy: (dy / len) * 8,
+      x: p.x + 24, y: p.y + 24,
+      vx: (dx/len)*8, vy: (dy/len)*8,
       life: 120,
-      color: ["#ff69b4","#00ffff","#ffff00","#ffa500","#00ff00","#ff4444"][Math.floor(Math.random()*6)]
+      color: randomColor()
     });
   });
 
