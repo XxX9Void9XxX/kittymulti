@@ -11,11 +11,7 @@ app.use(express.static("public"));
 const TICK = 1000 / 60;
 const GRAVITY = 0.8;
 
-const WORLD = {
-  width: 8000,
-  height: 2000,
-  groundY: 1700
-};
+const WORLD = { width: 8000, height: 2000, groundY: 1700 };
 
 const players = {};
 const platforms = [];
@@ -23,7 +19,7 @@ const mice = [];
 const birds = [];
 const yarns = [];
 
-/* PLATFORMS */
+/* ---------- PLATFORMS ---------- */
 platforms.push({ x: 0, y: WORLD.groundY, w: WORLD.width, h: 100 });
 for (let i = 0; i < 40; i++) {
   platforms.push({
@@ -34,7 +30,7 @@ for (let i = 0; i < 40; i++) {
   });
 }
 
-/* ENEMIES */
+/* ---------- ENEMIES ---------- */
 function spawnMice() {
   mice.length = 0;
   for (let i = 0; i < 6; i++) {
@@ -66,7 +62,7 @@ function spawnBirds() {
 }
 spawnBirds();
 
-/* COLLISION */
+/* ---------- COLLISION ---------- */
 function collide(e, size = 40) {
   e.onGround = false;
   for (const p of platforms) {
@@ -85,7 +81,7 @@ function collide(e, size = 40) {
   }
 }
 
-/* SOCKET */
+/* ---------- SOCKET ---------- */
 io.on("connection", socket => {
   players[socket.id] = {
     id: socket.id,
@@ -98,7 +94,8 @@ io.on("connection", socket => {
     maxHp: 100,
     jumps: 0,
     onGround: false,
-    lastJump: false
+    lastJump: false,
+    lastShot: 0
   };
 
   socket.on("setName", n => players[socket.id].name = n);
@@ -115,34 +112,33 @@ io.on("connection", socket => {
     }
     p.lastJump = i.jump;
 
-    if (i.shoot) {
+    const now = Date.now();
+    if (i.shoot && now - p.lastShot > 250) {
+      p.lastShot = now;
       yarns.push({
         x: p.x + 24,
         y: p.y + 24,
         vx: Math.cos(i.angle) * 10,
         vy: Math.sin(i.angle) * 10,
-        color: i.color
+        color: i.color,
+        dead: false
       });
     }
   });
 
-  socket.on("chat", msg => {
-    io.emit("chat", `${players[socket.id].name}: ${msg}`);
-  });
-
+  socket.on("chat", msg => io.emit("chat", `${players[socket.id].name}: ${msg}`));
   socket.on("disconnect", () => delete players[socket.id]);
 });
 
-/* LOOP */
+/* ---------- GAME LOOP ---------- */
 setInterval(() => {
+  // Players
   for (const p of Object.values(players)) {
     p.vy += GRAVITY;
     p.x += p.vx;
     p.y += p.vy;
     collide(p, 48);
-
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
-
     if (p.y > WORLD.groundY + 300) {
       p.x = 100;
       p.y = WORLD.groundY - 48;
@@ -150,42 +146,50 @@ setInterval(() => {
     }
   }
 
+  // Mice
   for (const m of mice) {
     m.vy += GRAVITY;
     m.x += m.vx;
     m.y += m.vy;
     collide(m);
-
-    if (Math.random() < 0.01 && m.jumps < 2) {
-      m.vy = -12;
-      m.jumps++;
-    }
-
+    if (Math.random() < 0.01 && m.jumps < 2) { m.vy = -12; m.jumps++; }
     if (m.x < 0 || m.x > WORLD.width - 40) m.vx *= -1;
-    if (m.hp <= 0) Object.assign(m, spawnMice()[0]);
+    if (m.hp <= 0) {
+      m.x = 500 + Math.random() * (WORLD.width - 1000);
+      m.y = WORLD.groundY - 40;
+      m.hp = m.maxHp;
+    }
   }
 
+  // Birds
   for (const b of birds) {
     b.x += b.vx;
     if (b.x < 0 || b.x > WORLD.width - 60) b.vx *= -1;
+    if (b.hp <= 0) {
+      b.x = 500 + Math.random() * (WORLD.width - 1000);
+      b.y = WORLD.groundY - 300 - Math.random() * 200;
+      b.hp = b.maxHp;
+    }
   }
 
-  for (let i = yarns.length - 1; i >= 0; i--) {
-    const y = yarns[i];
+  // Yarns
+  for (const y of yarns) {
     y.x += y.vx;
     y.y += y.vy;
+    if (y.x < -100 || y.x > WORLD.width + 100 || y.y < -100 || y.y > WORLD.height + 100) y.dead = true;
 
     for (const e of [...mice, ...birds]) {
-      if (
-        y.x > e.x && y.x < e.x + 40 &&
-        y.y > e.y && y.y < e.y + 40
-      ) {
+      if (e.hp <= 0) continue;
+      if (y.x > e.x && y.x < e.x + 40 && y.y > e.y && y.y < e.y + 40) {
         e.hp -= 20;
-        yarns.splice(i, 1);
+        y.dead = true;
         break;
       }
     }
   }
+
+  // Clean yarns
+  for (let i = yarns.length - 1; i >= 0; i--) if (yarns[i].dead) yarns.splice(i, 1);
 
   io.emit("state", { players, platforms, mice, birds, yarns, world: WORLD });
 }, TICK);
