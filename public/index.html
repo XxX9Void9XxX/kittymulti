@@ -8,14 +8,17 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: #111;
   overflow: hidden;
-  font-family: Arial;
+  background: black;
 }
 
+/* IMPORTANT */
 canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
   display: block;
-  background: #87ceeb;
 }
 
 #menu {
@@ -26,6 +29,8 @@ canvas {
   align-items: center;
   justify-content: center;
   z-index: 10;
+  color: white;
+  font-family: Arial;
 }
 
 #box {
@@ -33,7 +38,6 @@ canvas {
   padding: 30px;
   border-radius: 10px;
   text-align: center;
-  color: white;
 }
 
 input, button {
@@ -59,13 +63,13 @@ input, button {
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
-  let gameStarted = false;
+  window.gameStarted = false;
 
   function startGame() {
     const name = document.getElementById("nameInput").value || "Player";
     socket.emit("setName", name);
     document.getElementById("menu").style.display = "none";
-    gameStarted = true;
+    window.gameStarted = true;
   }
 </script>
 
