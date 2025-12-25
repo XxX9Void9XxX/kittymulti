@@ -10,6 +10,7 @@ app.use(express.static("public"));
 
 const TICK = 1000 / 60;
 const GRAVITY = 0.8;
+const VISION = 600;
 
 const WORLD = { width: 8000, height: 2000, groundY: 1700 };
 
@@ -55,6 +56,7 @@ function spawnBirds() {
       x: 500 + Math.random() * (WORLD.width - 1000),
       y: WORLD.groundY - 300 - Math.random() * 200,
       vx: Math.random() > 0.5 ? 3 : -3,
+      vy: 0,
       hp: 90,
       maxHp: 90
     });
@@ -63,7 +65,7 @@ function spawnBirds() {
 spawnBirds();
 
 /* ---------- COLLISION ---------- */
-function collide(e, size = 40) {
+function collideEntity(e, size = 40) {
   e.onGround = false;
   for (const p of platforms) {
     if (
@@ -140,24 +142,23 @@ setInterval(() => {
     p.vy += GRAVITY;
     p.x += p.vx;
     p.y += p.vy;
-    collide(p, 48);
+    collideEntity(p, 48);
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
 
     // Enemy attacks
     for (const m of mice) {
-      if (
-        p.x < m.x + 40 && p.x + 48 > m.x &&
-        p.y < m.y + 40 && p.y + 48 > m.y
-      ) { p.hp -= 0.5; }
+      if (p.x < m.x + 40 && p.x + 48 > m.x &&
+          p.y < m.y + 40 && p.y + 48 > m.y) {
+        p.hp -= 0.5;
+      }
     }
     for (const b of birds) {
-      if (
-        p.x < b.x + 60 && p.x + 48 > b.x &&
-        p.y < b.y + 40 && p.y + 48 > b.y
-      ) { p.hp -= 1; }
+      if (p.x < b.x + 60 && p.x + 48 > b.x &&
+          p.y < b.y + 40 && p.y + 48 > b.y) {
+        p.hp -= 1;
+      }
     }
 
-    // respawn if dead
     if (p.hp <= 0) {
       p.x = 100;
       p.y = WORLD.groundY - 48;
@@ -170,17 +171,19 @@ setInterval(() => {
     m.vy += GRAVITY;
     m.x += m.vx;
     m.y += m.vy;
-    collide(m);
+    collideEntity(m);
+
     if (Math.random() < 0.01 && m.jumps < 2) { m.vy = -12; m.jumps++; }
     if (m.x < 0 || m.x > WORLD.width - 40) m.vx *= -1;
 
-    // Move toward nearest player
+    // Target nearest player within vision
     let nearest = null, dist = Infinity;
     for (const p of Object.values(players)) {
       const d = Math.hypot(p.x - m.x, p.y - m.y);
-      if (d < dist) { nearest = p; dist = d; }
+      if (d < dist && d < VISION) { nearest = p; dist = d; }
     }
-    if (nearest) { m.vx = nearest.x > m.x ? 2 : -2; }
+    if (nearest) m.vx = nearest.x > m.x ? 2 : -2;
+
     if (m.hp <= 0) {
       m.x = 500 + Math.random() * (WORLD.width - 1000);
       m.y = WORLD.groundY - 40;
@@ -190,18 +193,21 @@ setInterval(() => {
 
   // Birds
   for (const b of birds) {
+    b.vy += GRAVITY;
     b.x += b.vx;
-    if (b.x < 0 || b.x > WORLD.width - 60) b.vx *= -1;
+    b.y += b.vy;
+    collideEntity(b);
 
     let nearest = null, dist = Infinity;
     for (const p of Object.values(players)) {
       const d = Math.hypot(p.x - b.x, p.y - b.y);
-      if (d < dist) { nearest = p; dist = d; }
+      if (d < dist && d < VISION) { nearest = p; dist = d; }
     }
     if (nearest) {
       b.vx = nearest.x > b.x ? 3 : -3;
-      if (Math.abs(nearest.x - b.x) < 200) b.y += 2; // swoop
+      if (Math.abs(nearest.x - b.x) < 200) b.vy += 2;
     }
+
     if (b.hp <= 0) {
       b.x = 500 + Math.random() * (WORLD.width - 1000);
       b.y = WORLD.groundY - 300 - Math.random() * 200;
@@ -225,7 +231,6 @@ setInterval(() => {
     }
   }
 
-  // Clean yarns
   for (let i = yarns.length - 1; i >= 0; i--) if (yarns[i].dead) yarns.splice(i, 1);
 
   io.emit("state", { players, platforms, mice, birds, yarns, world: WORLD });
