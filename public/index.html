@@ -1,138 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Kiity Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #111;
-    color: white;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #111;
+  overflow: hidden;
+  font-family: Arial;
+}
 
-  #menu {
-    position: fixed;
-    inset: 0;
-    background: #111;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-  }
+canvas {
+  display: block;
+  background: #87ceeb;
+}
 
-  #menuBox {
-    background: #222;
-    padding: 30px;
-    border-radius: 10px;
-    text-align: center;
-    width: 300px;
-  }
+#menu {
+  position: fixed;
+  inset: 0;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
 
-  input, button {
-    width: 100%;
-    padding: 10px;
-    margin-top: 10px;
-    font-size: 16px;
-    border-radius: 6px;
-    border: none;
-  }
+#box {
+  background: #222;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  color: white;
+}
 
-  button {
-    background: #ff77aa;
-    cursor: pointer;
-  }
-
-  canvas {
-    display: block;
-  }
-
-  #chat {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    width: 280px;
-    background: rgba(0,0,0,0.6);
-    padding: 8px;
-    border-radius: 8px;
-    display: none;
-  }
-
-  #chatMessages {
-    height: 120px;
-    overflow-y: auto;
-    font-size: 13px;
-    margin-bottom: 5px;
-  }
-
-  #chatInput {
-    width: 100%;
-    padding: 6px;
-  }
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+}
 </style>
 </head>
+
 <body>
 
-<!-- MENU -->
 <div id="menu">
-  <div id="menuBox">
+  <div id="box">
     <h2>🐱 Kiity Game</h2>
-    <input id="nameInput" placeholder="Username" maxlength="16">
-    <button id="playBtn">Play</button>
+    <input id="nameInput" placeholder="Username">
+    <button onclick="startGame()">Play</button>
   </div>
 </div>
 
-<!-- GAME -->
 <canvas id="game"></canvas>
-
-<!-- CHAT -->
-<div id="chat">
-  <div id="chatMessages"></div>
-  <input id="chatInput" placeholder="Chat...">
-</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const playBtn = document.getElementById("playBtn");
-  const menu = document.getElementById("menu");
-  const chat = document.getElementById("chat");
-  const nameInput = document.getElementById("nameInput");
-
   const socket = io();
+  let gameStarted = false;
 
-  playBtn.onclick = () => {
-    const name = nameInput.value.trim() || "Player";
+  function startGame() {
+    const name = document.getElementById("nameInput").value || "Player";
     socket.emit("setName", name);
-
-    menu.style.display = "none";
-    chat.style.display = "block";
-
-    // START GAME SCRIPT AFTER PLAY
-    const s = document.createElement("script");
-    s.src = "game.js";
-    document.body.appendChild(s);
-  };
-
-  const chatInput = document.getElementById("chatInput");
-  const chatMessages = document.getElementById("chatMessages");
-
-  chatInput.addEventListener("keydown", e => {
-    if (e.key === "Enter" && chatInput.value.trim()) {
-      socket.emit("chat", chatInput.value);
-      chatInput.value = "";
-    }
-  });
-
-  socket.on("chat", msg => {
-    const d = document.createElement("div");
-    d.textContent = msg;
-    chatMessages.appendChild(d);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
+    document.getElementById("menu").style.display = "none";
+    gameStarted = true;
+  }
 </script>
 
+<script src="game.js"></script>
 </body>
 </html>
