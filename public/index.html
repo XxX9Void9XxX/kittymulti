@@ -2,76 +2,21 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Kiity Game</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas Test</title>
 <style>
 html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: black;
 }
-
-/* IMPORTANT */
 canvas {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
   display: block;
-}
-
-#menu {
-  position: fixed;
-  inset: 0;
-  background: #111;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  color: white;
-  font-family: Arial;
-}
-
-#box {
-  background: #222;
-  padding: 30px;
-  border-radius: 10px;
-  text-align: center;
-}
-
-input, button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
 }
 </style>
 </head>
-
 <body>
 
-<div id="menu">
-  <div id="box">
-    <h2>🐱 Kiity Game</h2>
-    <input id="nameInput" placeholder="Username">
-    <button onclick="startGame()">Play</button>
-  </div>
-</div>
-
 <canvas id="game"></canvas>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io();
-  window.gameStarted = false;
-
-  function startGame() {
-    const name = document.getElementById("nameInput").value || "Player";
-    socket.emit("setName", name);
-    document.getElementById("menu").style.display = "none";
-    window.gameStarted = true;
-  }
-</script>
 
 <script src="game.js"></script>
 </body>
