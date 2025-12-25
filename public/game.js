@@ -130,6 +130,17 @@ function loop() {
     drawHealth(b.x-camX, b.y-camY, 60, b.hp, b.maxHp);
   }
 
+  // Other players
+  for (const p of Object.values(state.players)) {
+    if (p.id === myId) continue;
+    ctx.save();
+    ctx.translate(p.x-camX+24, p.y-camY+24);
+    ctx.scale(mouse.x < canvas.width/2?-1:1,1);
+    ctx.drawImage(imgPlayer,-24,-24,48,48);
+    ctx.restore();
+    drawHealth(p.x-camX, p.y-camY, 48, p.hp, p.maxHp);
+  }
+
   // Player
   ctx.save();
   ctx.translate(me.x-camX+24, me.y-camY+24);
