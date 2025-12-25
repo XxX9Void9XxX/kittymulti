@@ -41,6 +41,22 @@ setInterval(() => {
   });
 }, 1000/60);
 
+/* ---------- CHAT ---------- */
+const chatInput = document.createElement("input");
+chatInput.placeholder = "Type message...";
+chatInput.style.position = "absolute";
+chatInput.style.bottom = "0";
+chatInput.style.left = "310px";
+chatInput.style.width = "200px";
+document.body.appendChild(chatInput);
+
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && chatInput.value.trim() !== "") {
+    socket.emit("chat", chatInput.value);
+    chatInput.value = "";
+  }
+});
+
 socket.on("chat", msg => {
   let box = document.getElementById("chat");
   if (!box) {
@@ -61,6 +77,7 @@ socket.on("chat", msg => {
   box.scrollTop = box.scrollHeight;
 });
 
+/* ---------- DRAW ---------- */
 function drawHealth(x, y, w, hp, max) {
   ctx.fillStyle = "red";
   ctx.fillRect(x, y-8, w, 5);
@@ -79,11 +96,13 @@ function loop() {
   const camX = me.x - canvas.width/2;
   const camY = me.y - canvas.height/2;
 
+  // Platforms
   for (const p of state.platforms) {
     ctx.fillStyle = "#654321";
     ctx.fillRect(p.x-camX, p.y-camY, p.w, p.h);
   }
 
+  // Yarn
   for (const y of state.yarns) {
     ctx.fillStyle = y.color;
     ctx.beginPath();
@@ -91,6 +110,7 @@ function loop() {
     ctx.fill();
   }
 
+  // Mice
   for (const m of state.mice) {
     ctx.save();
     ctx.translate(m.x-camX+20, m.y-camY);
@@ -100,6 +120,7 @@ function loop() {
     drawHealth(m.x-camX, m.y-camY, 40, m.hp, m.maxHp);
   }
 
+  // Birds
   for (const b of state.birds) {
     ctx.save();
     ctx.translate(b.x-camX+30, b.y-camY);
@@ -109,6 +130,7 @@ function loop() {
     drawHealth(b.x-camX, b.y-camY, 60, b.hp, b.maxHp);
   }
 
+  // Player
   ctx.save();
   ctx.translate(me.x-camX+24, me.y-camY+24);
   ctx.scale(mouse.x < canvas.width/2?-1:1,1);
