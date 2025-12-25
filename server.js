@@ -104,14 +104,17 @@ io.on("connection", socket => {
     const p = players[socket.id];
     if (!p) return;
 
+    // Movement
     p.vx = i.left ? -5 : i.right ? 5 : 0;
 
+    // Jumping
     if (i.jump && !p.lastJump && (p.onGround || p.jumps < 2)) {
       p.vy = -14;
       p.jumps++;
     }
     p.lastJump = i.jump;
 
+    // Shooting
     const now = Date.now();
     if (i.shoot && now - p.lastShot > 250) {
       p.lastShot = now;
@@ -139,7 +142,23 @@ setInterval(() => {
     p.y += p.vy;
     collide(p, 48);
     p.x = Math.max(0, Math.min(WORLD.width - 48, p.x));
-    if (p.y > WORLD.groundY + 300) {
+
+    // Enemy attacks
+    for (const m of mice) {
+      if (
+        p.x < m.x + 40 && p.x + 48 > m.x &&
+        p.y < m.y + 40 && p.y + 48 > m.y
+      ) { p.hp -= 0.5; }
+    }
+    for (const b of birds) {
+      if (
+        p.x < b.x + 60 && p.x + 48 > b.x &&
+        p.y < b.y + 40 && p.y + 48 > b.y
+      ) { p.hp -= 1; }
+    }
+
+    // respawn if dead
+    if (p.hp <= 0) {
       p.x = 100;
       p.y = WORLD.groundY - 48;
       p.hp = p.maxHp;
@@ -154,6 +173,14 @@ setInterval(() => {
     collide(m);
     if (Math.random() < 0.01 && m.jumps < 2) { m.vy = -12; m.jumps++; }
     if (m.x < 0 || m.x > WORLD.width - 40) m.vx *= -1;
+
+    // Move toward nearest player
+    let nearest = null, dist = Infinity;
+    for (const p of Object.values(players)) {
+      const d = Math.hypot(p.x - m.x, p.y - m.y);
+      if (d < dist) { nearest = p; dist = d; }
+    }
+    if (nearest) { m.vx = nearest.x > m.x ? 2 : -2; }
     if (m.hp <= 0) {
       m.x = 500 + Math.random() * (WORLD.width - 1000);
       m.y = WORLD.groundY - 40;
@@ -165,6 +192,16 @@ setInterval(() => {
   for (const b of birds) {
     b.x += b.vx;
     if (b.x < 0 || b.x > WORLD.width - 60) b.vx *= -1;
+
+    let nearest = null, dist = Infinity;
+    for (const p of Object.values(players)) {
+      const d = Math.hypot(p.x - b.x, p.y - b.y);
+      if (d < dist) { nearest = p; dist = d; }
+    }
+    if (nearest) {
+      b.vx = nearest.x > b.x ? 3 : -3;
+      if (Math.abs(nearest.x - b.x) < 200) b.y += 2; // swoop
+    }
     if (b.hp <= 0) {
       b.x = 500 + Math.random() * (WORLD.width - 1000);
       b.y = WORLD.groundY - 300 - Math.random() * 200;
@@ -172,7 +209,7 @@ setInterval(() => {
     }
   }
 
-  // Yarns
+  // Yarn
   for (const y of yarns) {
     y.x += y.vx;
     y.y += y.vy;
