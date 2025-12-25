@@ -1,10 +1,19 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
 
 const socket = io();
-let state, myId;
+let state = null;
+let myId = null;
+const camera = { x: 0, y: 0 };
+const keys = {};
+let mouseX = 0;
 
 const playerImg = new Image();
 playerImg.src = "kiitygame.png";
@@ -13,97 +22,62 @@ mouseImg.src = "mouse.png";
 const birdImg = new Image();
 birdImg.src = "birds.png";
 
-// INPUT
-const keys = {};
-let jumpPressed = false;
-let mouse = { x: 0, y: 0 };
+addEventListener("mousemove", e => mouseX = e.clientX);
+addEventListener("keydown", e => keys[e.key] = true);
+addEventListener("keyup", e => keys[e.key] = false);
 
-addEventListener("keydown", e => {
-  keys[e.key] = true;
-  if (e.key === "w") jumpPressed = true;
-});
-addEventListener("keyup", e => {
-  keys[e.key] = false;
-  if (e.key === "w") jumpPressed = false;
-});
-addEventListener("mousemove", e => mouse = { x: e.clientX, y: e.clientY });
-addEventListener("mousedown", () => {
-  const dx = mouse.x - canvas.width / 2;
-  const dy = mouse.y - canvas.height / 2;
-  const len = Math.hypot(dx, dy) || 1;
-  socket.emit("shoot", {
-    dx: dx / len,
-    dy: dy / len,
-    color: `hsl(${Math.random()*360},100%,60%)`
+setInterval(() => {
+  socket.emit("input", {
+    left: keys.a || keys.ArrowLeft,
+    right: keys.d || keys.ArrowRight,
+    jump: keys.w || keys[" "] || keys.ArrowUp
   });
-});
+}, 1000 / 60);
 
 socket.on("connect", () => myId = socket.id);
 socket.on("state", s => state = s);
-socket.on("chat", msg => {
-  const d = document.createElement("div");
-  d.textContent = msg;
-  chatMessages.appendChild(d);
-});
 
 function draw() {
   requestAnimationFrame(draw);
   if (!state || !state.players[myId]) return;
 
   const me = state.players[myId];
-  socket.emit("input", {
-    left: keys.a,
-    right: keys.d,
-    jump: jumpPressed
-  });
+  camera.x = Math.max(0, me.x - canvas.width / 2);
+  camera.y = Math.max(0, me.y - canvas.height / 2);
 
-  const camX = me.x - canvas.width / 2;
-  const camY = me.y - canvas.height / 2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.save();
-  ctx.translate(-camX, -camY);
+  ctx.fillStyle = "#87CEEB";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  state.platforms.forEach(p => {
-    ctx.fillStyle = "#444";
-    ctx.fillRect(p.x,p.y,p.w,p.h);
-  });
+  for (const p of state.platforms) {
+    ctx.fillStyle = "#654321";
+    ctx.fillRect(p.x - camera.x, p.y - camera.y, p.w, p.h);
+  }
 
-  for (const id in state.players) {
-    const p = state.players[id];
+  for (const p of Object.values(state.players)) {
+    const flip = mouseX + camera.x < p.x + 24;
     ctx.save();
-    ctx.translate(p.x + 24, p.y);
-    ctx.scale(mouse.x + camX < p.x ? -1 : 1, 1);
+    ctx.translate(p.x - camera.x + 24, p.y - camera.y);
+    ctx.scale(flip ? -1 : 1, 1);
     ctx.drawImage(playerImg, -24, 0, 48, 48);
     ctx.restore();
   }
 
-  state.mice.forEach(m => {
-    if (m.dead) return;
+  for (const m of state.mice) {
     ctx.save();
-    ctx.translate(m.x + 16, m.y);
+    ctx.translate(m.x - camera.x + 20, m.y - camera.y);
     ctx.scale(m.vx < 0 ? -1 : 1, 1);
-    ctx.drawImage(mouseImg, -16, 0, 32, 32);
+    ctx.drawImage(mouseImg, -20, 0, 40, 40);
     ctx.restore();
-  });
+  }
 
-  state.birds.forEach(b => {
-    if (b.dead) return;
+  for (const b of state.birds) {
     ctx.save();
-    ctx.translate(b.x + 24, b.y);
+    ctx.translate(b.x - camera.x + 30, b.y - camera.y);
     ctx.scale(b.vx < 0 ? -1 : 1, 1);
-    ctx.drawImage(birdImg, -24, 0, 48, 48);
+    ctx.drawImage(birdImg, -30, 0, 60, 40);
     ctx.restore();
-  });
-
-  state.projectiles.forEach(p => {
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
-    ctx.fill();
-  });
-
-  ctx.restore();
+  }
 }
-
 draw();
