@@ -20,39 +20,41 @@ const WORLD = {
 };
 
 const players = {};
+const platforms = [];
 const mice = [];
 const birds = [];
-const platforms = [];
+const yarns = [];
 
+/* ---------- PLATFORMS ---------- */
 function makePlatforms() {
   platforms.length = 0;
-
   platforms.push({ x: 0, y: WORLD.groundY, w: WORLD.width, h: 100 });
 
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 50; i++) {
     platforms.push({
-      x: i * 160 + 200,
-      y: WORLD.groundY - 200 - (i % 5) * 80,
-      w: 140,
+      x: 300 + i * 180,
+      y: WORLD.groundY - 200 - (i % 4) * 120,
+      w: 160,
       h: 20
     });
   }
 }
 makePlatforms();
 
+/* ---------- ENEMIES ---------- */
 function spawnMice() {
   mice.length = 0;
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 8; i++) {
     mice.push({
       id: i,
-      x: Math.random() * (WORLD.width - 40),
+      x: 400 + Math.random() * (WORLD.width - 800),
       y: WORLD.groundY - 40,
       vx: Math.random() > 0.5 ? 2 : -2,
       vy: 0,
-      hp: 80,
-      maxHp: 80,
-      jumpCount: 0,
-      onGround: false
+      hp: 120,
+      maxHp: 120,
+      onGround: false,
+      jumpCount: 0
     });
   }
 }
@@ -63,17 +65,37 @@ function spawnBirds() {
   for (let i = 0; i < 10; i++) {
     birds.push({
       id: i,
-      x: Math.random() * (WORLD.width - 60),
-      y: WORLD.groundY - 400 - Math.random() * 200,
+      x: 400 + Math.random() * (WORLD.width - 800),
+      y: WORLD.groundY - 300 - Math.random() * 200,
       vx: Math.random() > 0.5 ? 3 : -3,
       vy: 0,
-      hp: 60,
-      maxHp: 60
+      hp: 90,
+      maxHp: 90
     });
   }
 }
 spawnBirds();
 
+/* ---------- COLLISION ---------- */
+function collide(e, size = 40) {
+  e.onGround = false;
+  for (const p of platforms) {
+    if (
+      e.x < p.x + p.w &&
+      e.x + size > p.x &&
+      e.y < p.y + p.h &&
+      e.y + size > p.y &&
+      e.vy >= 0
+    ) {
+      e.y = p.y - size;
+      e.vy = 0;
+      e.onGround = true;
+      e.jumpCount = 0;
+    }
+  }
+}
+
+/* ---------- SOCKET ---------- */
 io.on("connection", socket => {
   players[socket.id] = {
     id: socket.id,
@@ -104,44 +126,45 @@ io.on("connection", socket => {
       p.jumpCount++;
     }
     p.lastJump = i.jump;
+
+    if (i.shoot) {
+      yarns.push({
+        x: p.x + 24,
+        y: p.y + 24,
+        vx: Math.cos(i.angle) * 10,
+        vy: Math.sin(i.angle) * 10,
+        color: i.color,
+        owner: socket.id
+      });
+    }
   });
 
-  socket.on("disconnect", () => {
-    delete players[socket.id];
+  socket.on("chat", msg => {
+    const p = players[socket.id];
+    if (p) io.emit("chat", `${p.name}: ${msg}`);
   });
+
+  socket.on("disconnect", () => delete players[socket.id]);
 });
 
-function collide(e) {
-  e.onGround = false;
-  for (const p of platforms) {
-    if (
-      e.x < p.x + p.w &&
-      e.x + 40 > p.x &&
-      e.y < p.y + p.h &&
-      e.y + 40 > p.y &&
-      e.vy >= 0
-    ) {
-      e.y = p.y - 40;
-      e.vy = 0;
-      e.onGround = true;
-      e.jumpCount = 0;
-    }
-  }
-}
-
+/* ---------- GAME LOOP ---------- */
 setInterval(() => {
+  // Players
   for (const p of Object.values(players)) {
     p.vy += GRAVITY;
     p.x += p.vx;
     p.y += p.vy;
-    collide(p);
-    if (p.y > WORLD.groundY + 500) {
+    collide(p, 48);
+
+    if (p.hp <= 0 || p.y > WORLD.groundY + 500) {
       p.x = 100;
       p.y = WORLD.groundY - 48;
       p.hp = p.maxHp;
+      p.vy = 0;
     }
   }
 
+  // Mice
   for (const m of mice) {
     m.vy += GRAVITY;
     m.x += m.vx;
@@ -153,21 +176,46 @@ setInterval(() => {
     }
 
     collide(m);
+
+    if (m.hp <= 0) {
+      m.x = 400 + Math.random() * (WORLD.width - 800);
+      m.y = WORLD.groundY - 40;
+      m.hp = m.maxHp;
+    }
   }
 
+  // Birds
   for (const b of birds) {
     b.x += b.vx;
-    if (Math.random() < 0.01) b.vy = 6;
+    if (Math.random() < 0.02) b.vy = 6;
     b.y += b.vy * 0.1;
+
+    if (b.hp <= 0) {
+      b.x = 400 + Math.random() * (WORLD.width - 800);
+      b.y = WORLD.groundY - 300;
+      b.hp = b.maxHp;
+    }
   }
 
-  io.emit("state", {
-    players,
-    mice,
-    birds,
-    platforms,
-    world: WORLD
-  });
+  // Yarns
+  for (let i = yarns.length - 1; i >= 0; i--) {
+    const y = yarns[i];
+    y.x += y.vx;
+    y.y += y.vy;
+
+    for (const m of mice) {
+      if (
+        y.x > m.x && y.x < m.x + 40 &&
+        y.y > m.y && y.y < m.y + 40
+      ) {
+        m.hp -= 20;
+        yarns.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  io.emit("state", { players, platforms, mice, birds, yarns, world: WORLD });
 }, TICK);
 
-server.listen(3000, () => console.log("Running on port 3000"));
+server.listen(3000, () => console.log("Server running"));
